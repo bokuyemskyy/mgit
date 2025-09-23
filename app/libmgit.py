@@ -259,12 +259,12 @@ def object_read(repository, sha) -> Optional[GitObject]:
         raw = zlib.decompress(object.read())
 
         fmt_separator = raw.find(b" ")
-        if fmt_separator == -1:
+        if fmt_separator < 0:
             raise ValueError("Missing type separator")
         object_fmt = raw[:fmt_separator]
 
         size_separator = raw.find(b"\x00", fmt_separator)
-        if size_separator == -1:
+        if size_separator < 0:
             raise ValueError("Missing size separator")
 
         object_size = int(raw[fmt_separator:size_separator].decode("ascii"))
@@ -369,7 +369,7 @@ class GitCommit(GitObject):
 
     #    self.kvlm = kvlm_parse(data)
 
-    def serialize(self, repository=None):
+    def serialize(self, repository=None) -> bytes:
         pass
 
     #    return kvlm_serialize(self.kvlm)
@@ -395,3 +395,58 @@ class GitTree(GitObject):
 
     def init(self):
         self.items = list()
+
+
+def kvlm_deserialize(raw, kvlm=None):
+    size = len(raw)
+
+    if kvlm is None:
+        kvlm = dict()
+
+    start = 0
+    while start < size:
+        space = raw.find(b" ", start)
+        newline = raw.find(b"\n", start)
+
+        if (space < 0) or (newline < space):
+            if newline != start:
+                raise ValueError(f"Expected blank line at position {start}")
+            kvlm[None] = raw[start + 1 :]
+            return kvlm
+
+        key = raw[start:space]
+
+        end = start
+
+        while True:
+            end = raw.find(b"\n", end + 1)
+            if raw[end + 1] != ord(" "):
+                break
+
+        value = raw[space + 1 : end].replace(b"\n ", b"\n")
+
+        if key in kvlm:
+            kvlm[key].append(value)
+        else:
+            kvlm[key] = [value]
+
+        start = end + 1
+
+    return kvlm
+
+
+def kvlm_serialize(kvlm):
+    result = b""
+
+    for key in kvlm.keys():
+        if key == None:
+            continue
+
+        values = kvlm[key]
+
+        for value in values:
+            result += key + b" " + value.replace(b"\n", b"\n ") + b"\n"
+
+    result += b"\n" + kvlm[None]
+
+    return result
