@@ -66,6 +66,9 @@ argsp.add_argument(
 
 argsp.add_argument("path", help="Source for the object")
 
+argsp = argsubparsers.add_parser("log", help="Show history of a given commit")
+argsp.add_argument("commit", default="HEAD", nargs="?", help="Starting commit")
+
 
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
@@ -84,8 +87,8 @@ def main(argv=sys.argv[1:]):
             command_hash_object(args)
         case "init":
             command_init(args)
-        #    '''    case "log":
-        #            commandf_log(args)
+        case "log":
+            command_log(args)
         #        case "ls-files":
         #            command_ls_files(args)
         #        case "ls-tree":
@@ -230,14 +233,16 @@ def repository_find(path=".", required=True):
 
 
 class GitObject(ABC):
-    def __init__(self, data=None):
-        if data is not None:
-            self.deserialize(data)
+    fmt: bytes
+
+    def __init__(self, raw=None):
+        if raw is not None:
+            self.deserialize(raw)
         else:
             self.init()
 
     @abstractmethod
-    def deserialize(self, data) -> None:
+    def deserialize(self, raw) -> None:
         pass
 
     @abstractmethod
@@ -273,7 +278,7 @@ def object_read(repository, sha) -> Optional[GitObject]:
 
         match object_fmt:
             case b"commit":
-                constructor = GitBlob  # GitCommit
+                constructor = GitCommit
             case b"tree":
                 constructor = GitBlob  # GitTree
             case b"tag":
@@ -313,8 +318,8 @@ class GitBlob(GitObject):
     def serialize(self, repository=None):
         return self.blobdata
 
-    def deserialize(self, data):
-        self.blobdata = data
+    def deserialize(self, raw):
+        self.blobdata = raw
 
 
 def command_cat_file(args):
@@ -322,14 +327,15 @@ def command_cat_file(args):
     cat_file(repository, args.object, args.type.encode())
 
 
-def cat_file(repository, name: str, fmt=None):
-    object = object_read(repository, object_find(repository, name, fmt=fmt))
-    assert isinstance(object, GitObject)
+def cat_file(repository, sha: str, fmt=None):
+    object = object_read(repository, object_find(repository, sha, fmt=fmt))
+    if not isinstance(object, GitObject):
+        raise ValueError(f"Not an object: {sha}")
     print(object.serialize().decode("ascii"))
 
 
-def object_find(repository, name, fmt=None, follow=True):
-    return name
+def object_find(repository, sha, fmt=None, follow=True):
+    return sha
 
 
 def command_hash_object(args):
@@ -364,15 +370,11 @@ def object_hash(file, fmt, repository=None):
 class GitCommit(GitObject):
     fmt = b"commit"
 
-    def deserialize(self, data):
-        pass
+    def serialize(self, repository=None):
+        return kvlm_serialize(self.kvlm)
 
-    #    self.kvlm = kvlm_parse(data)
-
-    def serialize(self, repository=None) -> bytes:
-        pass
-
-    #    return kvlm_serialize(self.kvlm)
+    def deserialize(self, raw):
+        self.kvlm = kvlm_deserialize(raw)
 
     def init(self):
         self.kvlm = dict()
@@ -385,13 +387,13 @@ class GitTag(GitCommit):
 class GitTree(GitObject):
     fmt = b"tree"
 
-    def deserialize(self, data):
-        pass
-        # self.items = tree_parse(data)
-
     def serialize(self, repository=None):
         pass
         # return tree_serialize(self)
+
+    def deserialize(self, raw):
+        pass
+        # self.items = tree_parse(data)
 
     def init(self):
         self.items = list()
@@ -450,3 +452,50 @@ def kvlm_serialize(kvlm):
     result += b"\n" + kvlm[None]
 
     return result
+
+
+def command_log(args):
+    repository = repository_find()
+
+    seen = set()
+
+    for sha in iterate_commits(repository, args.commit, seen):
+        commit = object_read(repository, sha)
+        print_commit(commit, sha)
+
+
+def iterate_commits(repository, sha, seen):
+    if sha in seen:
+        return
+
+    seen.add(sha)
+    commit = object_read(repository, sha)
+
+    if not isinstance(commit, GitCommit):
+        raise ValueError(f"Object {sha} is not a commit")
+
+    parents = commit.kvlm.get(b"parent", [])
+
+    if not isinstance(parents, list):
+        parents = [parents]
+
+    for parent in parents:
+        yield from iterate_commits(repository, parent, seen)
+
+    yield sha
+
+
+def print_commit(commit: GitCommit, sha):
+    kvlm = commit.kvlm
+
+    print(f"commit {sha.decode("ascii")}")
+    if b"author" in kvlm:
+        print(f"Author: {kvlm[b"author"].decode("utf-8")}")
+    if b"date" in kvlm:
+        print(f"Date:   {kvlm[b"date"].decode("utf-8")}")
+    message = kvlm.get(None, b"").decode("utf-8")
+
+    print()
+    for line in message.splitlines():
+        print(f"    {line}")
+    print()
