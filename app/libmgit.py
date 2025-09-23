@@ -69,6 +69,11 @@ argsp.add_argument("path", help="Source for the object")
 argsp = argsubparsers.add_parser("log", help="Show history of a given commit")
 argsp.add_argument("commit", default="HEAD", nargs="?", help="Starting commit")
 
+argsp = argsubparsers.add_parser("ls-tree", help="Print a tree object")
+argsp.add_argument(
+    "-r", dest="recursive", action="store_true", help="Recurse into sub-trees"
+)
+
 
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
@@ -91,8 +96,8 @@ def main(argv=sys.argv[1:]):
             command_log(args)
         #        case "ls-files":
         #            command_ls_files(args)
-        #        case "ls-tree":
-        #            command_ls_tree(args)
+        case "ls-tree":
+            command_ls_tree(args)
         #        case "rev-parse":
         #            command_rev_parse(args)
         #        case "rm":
@@ -405,20 +410,20 @@ def kvlm_deserialize(raw, kvlm=None):
     if kvlm is None:
         kvlm = dict()
 
-    start = 0
-    while start < size:
-        space = raw.find(b" ", start)
-        newline = raw.find(b"\n", start)
+    pos = 0
+    while pos < size:
+        space = raw.find(b" ", pos)
+        newline = raw.find(b"\n", pos)
 
         if (space < 0) or (newline < space):
-            if newline != start:
-                raise ValueError(f"Expected blank line at position {start}")
-            kvlm[None] = raw[start + 1 :]
+            if newline != pos:
+                raise ValueError(f"Expected blank line at position {pos}")
+            kvlm[None] = raw[pos + 1 :]
             return kvlm
 
-        key = raw[start:space]
+        key = raw[pos:space]
 
-        end = start
+        end = pos
 
         while True:
             end = raw.find(b"\n", end + 1)
@@ -432,7 +437,7 @@ def kvlm_deserialize(raw, kvlm=None):
         else:
             kvlm[key] = [value]
 
-        start = end + 1
+        pos = end + 1
 
     return kvlm
 
@@ -499,3 +504,115 @@ def print_commit(commit: GitCommit, sha):
     for line in message.splitlines():
         print(f"    {line}")
     print()
+
+
+class GitTreeLeaf(object):
+    def __init__(self, mode, path, sha):
+        self.mode = mode
+        self.path = path
+        self.sha = sha
+
+
+def tree_deserialize(raw):
+    pos = 0
+    size = len(raw)
+    result = list()
+
+    while pos < size:
+        pos, node_raw = tree_node_deserialize(raw, pos)
+        result.append(raw)
+
+    return result
+
+
+def tree_node_deserialize(raw, pos=0):
+    mode_separator = raw.find(b" ", pos)
+    if mode_separator - pos != 5 and mode_separator - pos != 6:
+        raise ValueError("Missing mode separator")
+
+    mode = raw[pos:mode_separator]
+    if len(mode) == 5:
+        mode = b"0" + mode
+
+    path_separator = raw.find(b"\x00", mode_separator)
+    if path_separator < 0:
+        raise ValueError("Missing path separator")
+    path = raw[mode_separator + 1 : path_separator]
+
+    raw_sha = int.from_bytes(raw[path_separator + 1 : path_separator + 21], "big")
+    sha = format(raw_sha, "040x")
+
+    return path_separator + 21, GitTreeLeaf(mode, path.decode("utf8"), sha)
+
+
+def tree_leaf_sort_key(leaf):
+    if leaf.mode.startswith(b"10"):
+        return leaf.path
+    else:
+        return leaf.path + "/"
+
+
+def tree_serialize(object):
+    result = b""
+
+    object.items.sort(key=tree_leaf_sort_key)
+    for item in object.items:
+        result += item.mode
+        result += b" "
+        result += item.path.encode()
+        result += b"\x00"
+        sha = int(item.sha, 16)
+        result += sha.to_bytes(20, "big")
+
+    return result
+
+
+class GitTree(GitObject):
+    fmt = b"tree"
+
+    def deserialize(self, raw) -> None:
+        self.items = tree_deserialize(raw)
+
+    def serialize(self, repository=None) -> bytes:
+        return tree_serialize(self)
+
+    def init(self):
+        self.items = list()
+
+
+def command_ls_tree(args):
+    repository = repository_find()
+    ls_tree(repository, args.tree, args.recursive)
+
+
+def ls_tree(repository, sha, recursive=None, prefix=""):
+    name = object_find(repository, sha, fmt=b"tree")
+    object = object_read(repository, name)
+
+    if not isinstance(object, GitTree):
+        raise ValueError(f"Object is not a tree: {sha}")
+
+    for item in object.items:
+        if len(item.mode) == 5:
+            type = item.mode[0:1]
+        else:
+            type = item.mode[0:2]
+
+        match type:
+            case b"04":
+                type = "tree"
+            case b"10":
+                type = "blob"
+            case b"12":
+                type = "blob"
+            case b"16":
+                type = "commit"
+            case _:
+                raise Exception(f"Unknown object type: {item.mode}")
+
+        if not (recursive and type == "tree"):
+            print(
+                f"{"0" * (6 - len(item.mode)) + item.mode.decode("ascii")} {type} {item.sha}\t{os.path.join(prefix, item.path)}"
+            )
+        else:
+            ls_tree(repository, item.sha, recursive, os.path.join(prefix, item.path))
