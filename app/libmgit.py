@@ -616,3 +616,41 @@ def ls_tree(repository, sha, recursive=None, prefix=""):
             )
         else:
             ls_tree(repository, item.sha, recursive, os.path.join(prefix, item.path))
+
+
+def command_checkout(args):
+    repository = repository_find()
+
+    sha = object_find(repository, args.commit)
+    object = object_read(repository, sha)
+
+    if not isinstance(object, GitCommit):
+        raise ValueError(f"Object is not a commit: {sha}")
+
+    object = object_read(repository, object.kvlm[b"tree"].decode("ascii"))
+
+    if os.path.exists(args.path):
+        if not os.path.isdir(args.path):
+            raise Exception(f"Not a directory {args.path}")
+        if os.listdir(args.path):
+            raise Exception(f"Not empty {args.path}")
+    else:
+        os.makedirs(args.path)
+
+    tree_checkout(repository, object, os.path.realpath(args.path))
+
+
+def tree_checkout(repository, tree, path):
+    for item in tree.items:
+        object = object_read(repository, item.sha)
+        destination = os.path.join(path, item.path)
+
+        assert object is not None
+
+        if object.fmt == b"tree":
+            os.mkdir(destination)
+            tree_checkout(repository, object, destination)
+        elif object.fmt == b"blob":
+            with open(destination, "wb") as file:
+                assert isinstance(object, GitBlob)
+                file.write(object.blobdata)
