@@ -1,16 +1,23 @@
+from __future__ import annotations
+
+from typing import Optional
 from app.repository.repository import GitRepository
 from .object import GitObject
 
 
 class GitBlob(GitObject):
-    format = b"blob"
-    blobdata: bytes
+    fmt = b"blob"
+
+    data: bytes
 
     def initialize(self):
-        self.blobdata = b""
+        self.data = b""
 
     def serialize(self, repository: GitRepository | None = None) -> bytes:
-        return self.blobdata
+        return self.data
 
-    def deserialize(self, raw: bytes) -> None:
-        self.blobdata = raw
+    @classmethod
+    def deserialize(cls, data: bytes) -> GitBlob:
+        instance = cls()
+        instance.data = data
+        return instance

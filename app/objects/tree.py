@@ -1,77 +1,84 @@
+from __future__ import annotations
+
+from typing import Type
 from app.repository.repository import GitRepository
 from .object import GitObject
 
 
 class GitTree(GitObject):
-    format = b"tree"
-    items: list
+    fmt = b"tree"
+
+    items: list[GitTreeLeaf]
 
     def initialize(self):
         self.items = list()
 
     def serialize(self, repository: GitRepository | None = None) -> bytes:
-        return tree_serialize(self)
+        result = b""
 
-    def deserialize(self, raw: bytes) -> None:
-        self.items = tree_deserialize(raw)
+        self.items.sort(key=lambda leaf: leaf.sort_key())
+        for item in self.items:
+            result += item.serialize()
+
+        return result
+
+    @classmethod
+    def deserialize(cls, data: bytes) -> GitTree:
+        instance = cls()
+
+        pos = 0
+        size = len(data)
+
+        while pos < size:
+            node, consumed = GitTreeLeaf.deserialize(data[pos:])
+            pos += consumed
+            instance.items.append(node)
+
+        return instance
 
 
-class GitTreeLeaf(object):
-    def __init__(self, mode, path, sha):
+class GitTreeLeaf:
+    def __init__(self, mode: bytes, path: str, sha: str):
         self.mode = mode
         self.path = path
         self.sha = sha
 
+    def serialize(self) -> bytes:
+        result = self.mode + b" " + self.path.encode() + b"\x00"
+        sha_int = int(self.sha, 16)
+        result += sha_int.to_bytes(20, "big")
+        return result
 
-def tree_deserialize(raw):
-    pos = 0
-    size = len(raw)
-    result = list()
+    @classmethod
+    def deserialize(cls, raw: bytes) -> tuple[GitTreeLeaf, int]:
+        mode_separator = raw.find(b" ")
+        if mode_separator not in (5, 6):
+            raise ValueError("Missing or invalid mode separator")
 
-    while pos < size:
-        pos, node_raw = tree_node_deserialize(raw, pos)
-        result.append(raw)
+        mode = raw[:mode_separator]
+        if len(mode) == 5:
+            mode = b"0" + mode
 
-    return result
+        path_separator = raw.find(b"\x00", mode_separator)
+        if path_separator < 0:
+            raise ValueError("Missing path separator")
 
+        path = raw[mode_separator + 1 : path_separator].decode("utf-8")
 
-def tree_node_deserialize(raw, pos=0):
-    mode_separator = raw.find(b" ", pos)
-    if mode_separator - pos != 5 and mode_separator - pos != 6:
-        raise ValueError("Missing mode separator")
+        SHA_SIZE = 20
 
-    mode = raw[pos:mode_separator]
-    if len(mode) == 5:
-        mode = b"0" + mode
+        if len(raw) < path_separator + SHA_SIZE + 1:
+            raise ValueError("Raw data too short for SHA")
+        raw_sha = int.from_bytes(
+            raw[path_separator + 1 : path_separator + 1 + SHA_SIZE], "big"
+        )
+        sha = format(raw_sha, "040x")
 
-    path_separator = raw.find(b"\x00", mode_separator)
-    if path_separator < 0:
-        raise ValueError("Missing path separator")
-    path = raw[mode_separator + 1 : path_separator]
+        consumed_length = path_separator + 1 + SHA_SIZE
 
-    raw_sha = int.from_bytes(raw[path_separator + 1 : path_separator + 21], "big")
-    sha = format(raw_sha, "040x")
+        return cls(mode, path, sha), consumed_length
 
-    return path_separator + 21, GitTreeLeaf(mode, path.decode("utf8"), sha)
-
-
-def tree_leaf_sort_key(leaf):
-    if leaf.mode.startswith(b"10"):
-        return leaf.path
-    else:
-        return leaf.path + "/"
-
-
-def tree_serialize(object):
-    result = b""
-
-    object.items.sort(key=tree_leaf_sort_key)
-    for item in object.items:
-        result += item.mode
-        result += b" "
-        result += item.path.encode()
-        result += b"\x00"
-        sha = int(item.sha, 16)
-        result += sha.to_bytes(20, "big")
-
-    return result
+    def sort_key(self) -> str:
+        if self.mode.startswith(b"10"):
+            return self.path
+        return self.path + "/"

@@ -1,26 +1,33 @@
+from __future__ import annotations
+
+from typing import Optional
 from app.repository.repository import GitRepository
 from .object import GitObject
 
 
 class GitCommit(GitObject):
-    format = b"commit"
-    kvlm: dict
+    fmt = b"commit"
+
+    kvlm: dict[Optional[bytes], list[bytes]]
 
     def initialize(self):
-        self.kvlm = dict()
+        self.kvlm = {}
 
     def serialize(self, repository: GitRepository | None = None) -> bytes:
         return kvlm_serialize(self.kvlm)
 
-    def deserialize(self, raw: bytes) -> None:
-        self.kvlm = kvlm_deserialize(raw)
+    @classmethod
+    def deserialize(cls, data: bytes) -> GitCommit:
+        instance = cls()
+        instance.kvlm = kvlm_deserialize(data)
+        return instance
 
 
-def kvlm_deserialize(raw, kvlm=None):
+def kvlm_deserialize(raw: bytes, kvlm: Optional[dict] = None) -> dict:
     size = len(raw)
 
     if kvlm is None:
-        kvlm = dict()
+        kvlm = {}
 
     pos = 0
     while pos < size:
@@ -30,22 +37,24 @@ def kvlm_deserialize(raw, kvlm=None):
         if (space < 0) or (newline < space):
             if newline != pos:
                 raise ValueError(f"Expected blank line at position {pos}")
-            kvlm[None] = raw[pos + 1 :]
+            kvlm[None][0] = raw[pos + 1 :]
             return kvlm
 
         key = raw[pos:space]
 
         end = pos
-
         while True:
             end = raw.find(b"\n", end + 1)
-            if raw[end + 1] != ord(" "):
+            if end < 0 or raw[end + 1] != ord(" "):
                 break
 
         value = raw[space + 1 : end].replace(b"\n ", b"\n")
 
         if key in kvlm:
-            kvlm[key].append(value)
+            if isinstance(kvlm[key], list):
+                kvlm[key].append(value)
+            else:
+                kvlm[key] = [kvlm[key], value]
         else:
             kvlm[key] = [value]
 
@@ -54,18 +63,20 @@ def kvlm_deserialize(raw, kvlm=None):
     return kvlm
 
 
-def kvlm_serialize(kvlm):
+def kvlm_serialize(kvlm: dict) -> bytes:
     result = b""
 
-    for key in kvlm.keys():
-        if key == None:
+    for key, values in kvlm.items():
+        if key is None:
             continue
 
-        values = kvlm[key]
+        if not isinstance(values, list):
+            values = [values]
 
         for value in values:
             result += key + b" " + value.replace(b"\n", b"\n ") + b"\n"
 
-    result += b"\n" + kvlm[None]
+    if None in kvlm:
+        result += b"\n" + kvlm[None][0]
 
     return result

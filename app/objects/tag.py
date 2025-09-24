@@ -2,4 +2,4 @@ from .commit import GitCommit
 
 
 class GitTag(GitCommit):
-    format = b"tag"
+    fmt = b"tag"
