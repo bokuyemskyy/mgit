@@ -1,7 +1,7 @@
 import sys
 import argparse
 
-from commands import init, cat_file, hash_object, log, ls_tree
+from app.commands import init, cat_file, hash_object, log, ls_tree
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -1,5 +1,0 @@
-#!/usr/bin/env python3
-
-import app.libmgit as mgit
-
-mgit.main()
