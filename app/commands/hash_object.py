@@ -1,4 +1,13 @@
-from app.repository import repository_find, object_hash
+from app.repository import (
+    repository_find,
+    object_write,
+    object_hash,
+    object_raw,
+    GitCommit,
+    GitBlob,
+    GitTag,
+    GitTree,
+)
 
 
 def setup_parser(subparsers):
@@ -25,11 +34,27 @@ def setup_parser(subparsers):
 
 
 def command_hash_object(args):
-    repository = None
+    match args.type.encode():
+        case b"commit":
+            object_class = GitCommit
+        case b"tree":
+            object_class = GitTree
+        case b"tag":
+            object_class = GitTag
+        case b"blob":
+            object_class = GitBlob
+        case _:
+            raise ValueError(f"Unknown object type: {args.type}")
+
+    with open(args.path, "rb") as obj_file:
+        data = obj_file.read()
+
+    obj = object_class.deserialize(data)
+    raw = object_raw(obj)
+    sha = object_hash(raw)
 
     if args.write:
-        repository = repository_find()
+        repo = repository_find()
+        sha = object_write(obj, repo)
 
-    with open(args.path, "rb") as object_file:
-        sha = object_hash(object_file, args.type.encode(), repository)
-        print(sha)
+    print(sha)

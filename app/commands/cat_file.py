@@ -15,12 +15,12 @@ def setup_parser(subparsers):
 
 
 def command_cat_file(args):
-    repository = repository_find()
-    cat_file(repository, args.object, args.type.encode())
+    repo = repository_find()
+    cat_file(repo, args.object, args.type.encode())
 
 
-def cat_file(repository, sha: str, fmt=None):
-    object = object_read(repository, object_find(repository, sha, fmt=fmt))
-    if not isinstance(object, GitObject):
+def cat_file(repo, sha: str, fmt=None):
+    obj = object_read(repo, object_find(repo, sha, fmt=fmt))
+    if not isinstance(obj, GitObject):
         raise ValueError(f"Not an object: {sha}")
-    print(object.serialize().decode("ascii"))
+    print(obj.serialize().decode("ascii"))
