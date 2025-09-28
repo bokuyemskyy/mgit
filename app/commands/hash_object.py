@@ -1,3 +1,5 @@
+from app.cli import logger
+
 from app.repository import (
     repository_find,
     object_write,
@@ -57,4 +59,4 @@ def command_hash_object(args):
         repo = repository_find()
         sha = object_write(obj, repo)
 
-    print(sha)
+    logger.info(sha)

@@ -1,3 +1,5 @@
+from app.cli import logger
+
 from app.repository import repository_find, object_read, GitCommit
 
 
@@ -46,18 +48,18 @@ def iterate_commits(repository, sha, seen):
 def print_commit(commit: GitCommit, sha):
     kvlm = commit.kvlm
 
-    print(f"commit {sha.decode("ascii")}")
+    logger.info(f"commit {sha.decode('ascii')}")
     if b"author" in kvlm:
         for author in kvlm[b"author"]:
-            print(f"Author: {author.decode('utf-8')}")
+            logger.info(f"Author: {author.decode('utf-8')}")
 
     if b"date" in kvlm:
         for date in kvlm[b"date"]:
-            print(f"Date:   {date.decode('utf-8')}")
+            logger.info(f"Date:   {date.decode('utf-8')}")
 
     message = kvlm.get(None, [b""])[0].decode("utf-8")
 
-    print()
+    logger.info("")
     for line in message.splitlines():
-        print(f"    {line}")
-    print()
+        logger.info(f"    {line}")
+    logger.info("")

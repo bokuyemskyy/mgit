@@ -1,5 +1,6 @@
 from app.repository import repository_find, object_find, object_read
 from app.objects import GitObject
+from app.cli import logger
 
 
 def setup_parser(subparsers):
@@ -23,4 +24,4 @@ def cat_file(repo, sha: str, fmt=None):
     obj = object_read(repo, object_find(repo, sha, fmt=fmt))
     if not isinstance(obj, GitObject):
         raise ValueError(f"Not an object: {sha}")
-    print(obj.serialize().decode("ascii"))
+    logger.info(obj.serialize().decode("ascii"))

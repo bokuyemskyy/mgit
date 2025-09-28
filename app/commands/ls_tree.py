@@ -1,3 +1,5 @@
+from app.cli import logger
+
 import os
 from app.repository import (
     object_read,
@@ -50,8 +52,8 @@ def ls_tree(repo: GitRepository, name: str, recursive: bool = False, prefix=""):
                 raise Exception(f"Unknown object type: {item.mode}")
 
         if not (recursive and type == "tree"):
-            print(
-                f"{"0" * (6 - len(item.mode)) + item.mode.decode("ascii")} {type} {item.sha}\t{os.path.join(prefix, item.path)}"
+            logger.info(
+                f"{'0' * (6 - len(item.mode)) + item.mode.decode('ascii')} {type} {item.sha}\t{os.path.join(prefix, item.path)}"
             )
         else:
             ls_tree(repo, item.sha, recursive, os.path.join(prefix, item.path))
