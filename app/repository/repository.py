@@ -13,12 +13,13 @@ class GitRepository:
         self.gitdir = os.path.join(path, ".git")
         self.config = configparser.ConfigParser()
 
-        if not os.path.isdir(self.gitdir) and not force:
-            raise NotADirectoryError(f"Not a git repository: {path}")
+        if not os.path.isdir(self.gitdir):
+            if not force:
+                raise NotADirectoryError(f"Not a git repository: {path}")
+            return
 
         config_file = repository_file(self, "config")
-
-        if config_file and os.path.exists(config_file):
+        if os.path.exists(config_file):
             self.config.read([config_file])
         elif not force:
             raise Exception("Configuration file not found")
@@ -58,6 +59,7 @@ def repository_dir(repository: GitRepository, *path: str, mkdir=False) -> str:
     if mkdir:
         try:
             os.makedirs(full_path)
+            return full_path
         except OSError as e:
             raise RuntimeError(f"Failed to create directory {full_path}: {e}")
     raise FileNotFoundError(f"Directory does not exist: {full_path}")
@@ -74,10 +76,11 @@ def repository_create(path: str) -> GitRepository:
     if os.path.exists(repository.worktree):
         if not os.path.isdir(repository.worktree):
             raise NotADirectoryError(f"{path} is not a directory")
-        if os.path.exists(repository.gitdir) and os.listdir(repository.gitdir):
-            raise FileExistsError(f"{path} is not empty")
     else:
         os.makedirs(repository.worktree, exist_ok=True)
+
+    if not os.path.exists(repository.gitdir):
+        os.makedirs(repository.gitdir)
 
     ensure_dirs(repository, ["branches", "objects", "refs/tags", "refs/heads"])
     ensure_files(
@@ -87,7 +90,7 @@ def repository_create(path: str) -> GitRepository:
             "HEAD": "ref: refs/heads/main\n",
         },
     )
-    from config import write_config
+    from .config import write_config
 
     write_config(repository)
 

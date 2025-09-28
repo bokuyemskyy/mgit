@@ -37,7 +37,7 @@ def kvlm_deserialize(raw: bytes, kvlm: Optional[dict] = None) -> dict:
         if (space < 0) or (newline < space):
             if newline != pos:
                 raise ValueError(f"Expected blank line at position {pos}")
-            kvlm[None][0] = raw[pos + 1 :]
+            kvlm[None][0] = raw[pos + 1:]
             return kvlm
 
         key = raw[pos:space]
@@ -48,7 +48,7 @@ def kvlm_deserialize(raw: bytes, kvlm: Optional[dict] = None) -> dict:
             if end < 0 or raw[end + 1] != ord(" "):
                 break
 
-        value = raw[space + 1 : end].replace(b"\n ", b"\n")
+        value = raw[space + 1:end].replace(b"\n ", b"\n")
 
         if key in kvlm:
             if isinstance(kvlm[key], list):

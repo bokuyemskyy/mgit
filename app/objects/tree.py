@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Type
 from app.repository.repository import GitRepository
 from .object import GitObject
 

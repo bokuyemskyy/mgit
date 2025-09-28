@@ -28,6 +28,7 @@ def write_config(
 ) -> None:
     if not config:
         config = repository_default_config()
+    repository.config = config
     config_path = repository_file(repository, "config", mkdir=True)
     with open(config_path, "w") as config_file:
         config.write(config_file)

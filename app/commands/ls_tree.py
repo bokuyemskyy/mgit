@@ -4,7 +4,6 @@ from app.repository import (
     object_find,
     repository_find,
     GitTree,
-    GitCommit,
     GitRepository,
 )
 
