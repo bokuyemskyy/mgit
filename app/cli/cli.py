@@ -6,13 +6,7 @@ from app.cli import logger
 
 COMMAND_DIR = "app.commands"
 
-COMMANDS = [
-    "init",
-    "cat_file",
-    "hash_object",
-    "log",
-    "ls_tree",
-]
+COMMANDS = ["init", "cat_file", "hash_object", "log", "ls_tree", "checkout", "show_ref"]
 
 
 def build_parser() -> argparse.ArgumentParser:

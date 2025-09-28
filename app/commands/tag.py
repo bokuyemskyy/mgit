@@ -1,68 +1,68 @@
 from __future__ import annotations
 import os
-from typing import Union, Dict
-from argparse import _SubParsersAction
 
 from app.cli import logger
 from app.repository import (
     repository_find,
     repository_file,
-    repository_dir,
-    GitRepository,
+    object_find,
+    object_write,
+    GitTag,
 )
-
-RefTree = Dict[str, Union[str, "RefTree"]]
-
-
-def setup_parser(subparsers: _SubParsersAction) -> None:
-    parser = subparsers.add_parser("show-ref", help="Show references")
-    parser.set_defaults(func=command_show_ref)
+from .show_ref import ref_list, show_ref
 
 
-def command_show_ref(args) -> None:
+def setup_parser(subparsers):
+    parser = subparsers.add_parser("tag", help="List and create tags")
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--list", "-l", action="store_true", help="List all tags")
+    group.add_argument(
+        "-a", action="store_true", dest="create_tag", help="Create an annotated tag"
+    )
+
+    parser.add_argument("name", nargs="?", help="Tag name")
+    parser.add_argument(
+        "object", default="HEAD", nargs="?", help="Object the tag points to"
+    )
+
+    parser.set_defaults(func=command_tag)
+
+
+def command_tag(args) -> None:
     repo = repository_find()
-    refs = ref_list(repo)
-    show_ref(refs, prefix="refs")
+
+    if args.list:
+        tags = ref_list(repo)["tags"]
+        if isinstance(tags, dict):
+            show_ref(tags, with_hash=False)
+    elif args.create_tag:
+        tag_create(
+            repo, args.name, args.object, create_tag_object=args.create_tag_object
+        )
+    else:
+        tags = ref_list(repo)["tags"]
+        if isinstance(tags, dict):
+            show_ref(tags, with_hash=False)
 
 
-def show_ref(refs: RefTree, with_hash: bool = True, prefix: str = "") -> None:
-    for name, value in refs.items():
-        ref_path = f"{prefix}/{name}" if prefix else name
+def tag_create(repo, name, ref, create_tag_object=False):
+    sha = object_find(repo, ref)
 
-        if isinstance(value, str):
-            logger.info(f"{value} {ref_path}" if with_hash else ref_path)
-        elif isinstance(value, dict):
-            show_ref(value, with_hash=with_hash, prefix=ref_path)
-        else:
-            raise TypeError("Unexpected ref value type")
+    if create_tag_object:
+        tag = GitTag()
+        tag.kvlm[b"object"] = [sha.encode()]
+        tag.kvlm[b"type"] = [b"commit"]
+        tag.kvlm[b"tag"] = [name.encode()]
+        # tag.kvlm[b"tagger"]
+        # tag.kvlm[None]
 
-
-def ref_resolve(repo: GitRepository, ref: str) -> str:
-    while True:
-        path = repository_file(repo, ref)
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"Ref not found: {path}")
-
-        with open(path, "r") as ref_file:
-            data = ref_file.read().strip()
-
-        if data.startswith("ref: "):
-            ref = data[5:]
-            continue
-        return data
+        tag_sha = object_write(tag, repo)
+        ref_create(repo, "tags/" + name, tag_sha)
+    else:
+        ref_create(repo, "tags/" + name, sha)
 
 
-def ref_list(repo: GitRepository, path: str = "refs") -> RefTree:
-    refs_dir = repository_dir(repo, path)
-    result: RefTree = {}
-
-    for entry in sorted(os.listdir(refs_dir)):
-        full_path = os.path.join(refs_dir, entry)
-        ref_name = os.path.join(path, entry)
-
-        if os.path.isdir(full_path):
-            result[entry] = ref_list(repo, ref_name)
-        else:
-            result[entry] = ref_resolve(repo, ref_name)
-
-    return result
+def ref_create(repo, ref_name, sha):
+    with open(repository_file(repo, "refs/" + ref_name), "w") as ref_file:
+        ref_file.write(sha + "\n")
