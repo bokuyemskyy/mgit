@@ -1,34 +1,42 @@
 import os
 import configparser
-
 from typing import Optional
 
-from .repository import GitRepository, repository_file
 
+class Config:
+    def __init__(self, path: str) -> None:
+        self.path = path
 
-def repository_default_config() -> configparser.ConfigParser:
-    config = configparser.ConfigParser()
-    config.add_section("core")
-    config.set("core", "repositoryformatversion", "0")
-    config.set("core", "filemode", "false")
-    config.set("core", "bare", "false")
-    return config
+    @staticmethod
+    def default_config() -> configparser.ConfigParser:
+        config = configparser.ConfigParser()
+        config.add_section("core")
+        config.set("core", "repositoryformatversion", str(0))
+        config.set("core", "filemode", str(False).lower())
+        config.set("core", "bare", str(False).lower())
+        return config
 
+    def read(self) -> configparser.ConfigParser:
+        if not os.path.isfile(self.path):
+            raise FileNotFoundError(f"Config file not found: {self.path}")
 
-def read_config(repository: GitRepository) -> configparser.ConfigParser:
-    config_file = repository_file(repository, "config")
-    config = configparser.ConfigParser()
-    if config_file and os.path.exists(config_file):
-        config.read([config_file])
-    return config
+        config = configparser.ConfigParser()
+        with open(self.path, "r", encoding="utf-8") as file:
+            config.read_file(file)
 
+        return config
 
-def write_config(
-    repository: GitRepository, config: Optional[configparser.ConfigParser] = None
-) -> None:
-    if not config:
-        config = repository_default_config()
-    repository.config = config
-    config_path = repository_file(repository, "config", mkdir=True)
-    with open(config_path, "w") as config_file:
-        config.write(config_file)
+    def write(self, config: Optional[configparser.ConfigParser] = None) -> None:
+        if os.path.isfile(self.path):
+            existing_config = configparser.ConfigParser()
+            try:
+                with open(self.path, "r", encoding="utf-8") as f:
+                    existing_config.read_file(f)
+            except Exception:
+                raise RuntimeError(f"File {self.path} exists and is not a valid config")
+
+        if config is None:
+            config = self.default_config()
+
+        with open(self.path, "w", encoding="utf-8") as file:
+            config.write(file)
