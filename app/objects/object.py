@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TypeVar, Type
 from abc import ABC, abstractmethod
-from app.repository import GitRepository
 
 
 class GitObject(ABC):
@@ -16,7 +14,7 @@ class GitObject(ABC):
         pass
 
     @abstractmethod
-    def serialize(self, repository: Optional[GitRepository] = None) -> bytes:
+    def serialize(self) -> bytes:
         pass
 
     @classmethod

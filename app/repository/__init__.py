@@ -1,2 +1,1 @@
-from .repository import *
-from .objects import *
+from .repository import GitRepository, RefTree

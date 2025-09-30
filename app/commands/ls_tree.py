@@ -1,16 +1,13 @@
-from app.cli import logger
-
 import os
-from app.repository import (
-    object_read,
-    object_find,
-    repository_find,
-    GitTree,
-    GitRepository,
-)
+from argparse import _SubParsersAction
+
+from .command import command
+from app.cli import logger
+from app.repository import GitRepository
+from app.objects import GitTree
 
 
-def setup_parser(subparsers):
+def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "ls-tree",
         help="Print a tree object",
@@ -21,14 +18,14 @@ def setup_parser(subparsers):
     parser.set_defaults(func=command_ls_tree)
 
 
-def command_ls_tree(args):
-    repo = repository_find()
+@command(requires_repo=True)
+def command_ls_tree(args, repo) -> None:
     ls_tree(repo, args.tree, args.recursive)
 
 
 def ls_tree(repo: GitRepository, name: str, recursive: bool = False, prefix=""):
-    sha = object_find(repo, name, fmt="tree")
-    obj = object_read(repo, name)
+    sha = repo.object_find(name, fmt="tree")
+    obj = repo.object_read(name)
 
     if not isinstance(obj, GitTree):
         raise ValueError(f"Object is not a tree: {sha}")

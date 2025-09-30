@@ -1,18 +1,14 @@
 from __future__ import annotations
-import os
+from argparse import _SubParsersAction
 
-from app.cli import logger
-from app.repository import (
-    repository_find,
-    repository_file,
-    object_find,
-    object_write,
-    GitTag,
-)
-from .show_ref import ref_list, show_ref
+from .command import command
+from app.repository import GitRepository
+from app.objects import GitTag
+
+from .show_ref import show_ref
 
 
-def setup_parser(subparsers):
+def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser("tag", help="List and create tags")
 
     group = parser.add_mutually_exclusive_group()
@@ -29,11 +25,10 @@ def setup_parser(subparsers):
     parser.set_defaults(func=command_tag)
 
 
-def command_tag(args) -> None:
-    repo = repository_find()
-
+@command(requires_repo=True)
+def command_tag(args, repo) -> None:
     if args.list:
-        tags = ref_list(repo)["tags"]
+        tags = repo.ref_list()["tags"]
         if isinstance(tags, dict):
             show_ref(tags, with_hash=False)
     elif args.create_tag:
@@ -41,13 +36,13 @@ def command_tag(args) -> None:
             repo, args.name, args.object, create_tag_object=args.create_tag_object
         )
     else:
-        tags = ref_list(repo)["tags"]
+        tags = repo.ref_list()["tags"]
         if isinstance(tags, dict):
             show_ref(tags, with_hash=False)
 
 
-def tag_create(repo, name, ref, create_tag_object=False):
-    sha = object_find(repo, ref)
+def tag_create(repo: GitRepository, name, ref, create_tag_object=False):
+    sha = repo.object_find(ref)
 
     if create_tag_object:
         tag = GitTag()
@@ -57,12 +52,7 @@ def tag_create(repo, name, ref, create_tag_object=False):
         # tag.kvlm[b"tagger"]
         # tag.kvlm[None]
 
-        tag_sha = object_write(tag, repo)
-        ref_create(repo, "tags/" + name, tag_sha)
+        tag_sha = repo.object_write(tag)
+        repo.ref_create("tags/" + name, tag_sha)
     else:
-        ref_create(repo, "tags/" + name, sha)
-
-
-def ref_create(repo, ref_name, sha):
-    with open(repository_file(repo, "refs/" + ref_name), "w") as ref_file:
-        ref_file.write(sha + "\n")
+        repo.ref_create("tags/" + name, sha)

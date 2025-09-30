@@ -1,18 +1,13 @@
+import os
+from argparse import _SubParsersAction
+
+from .command import command
 from app.cli import logger
-
-from app.repository import (
-    repository_find,
-    object_write,
-    object_hash,
-    object_raw,
-    GitCommit,
-    GitBlob,
-    GitTag,
-    GitTree,
-)
+from app.repository import GitRepository
+from app.objects import GitCommit, GitTree, GitTag, GitBlob
 
 
-def setup_parser(subparsers):
+def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "hash-object",
         help="Compute the hash of an object and optionally write it to the database",
@@ -35,7 +30,8 @@ def setup_parser(subparsers):
     parser.set_defaults(func=command_hash_object)
 
 
-def command_hash_object(args):
+@command(requires_repo=False)
+def command_hash_object(args) -> None:
     match args.type.encode():
         case b"commit":
             object_class = GitCommit
@@ -48,15 +44,17 @@ def command_hash_object(args):
         case _:
             raise ValueError(f"Unknown object type: {args.type}")
 
+    if not os.path.isfile(args.path):
+        raise FileNotFoundError(f"No such file: {args.path}")
     with open(args.path, "rb") as obj_file:
         data = obj_file.read()
 
     obj = object_class.deserialize(data)
-    raw = object_raw(obj)
-    sha = object_hash(raw)
+    raw = GitRepository.object_raw(obj)
+    sha = GitRepository.object_hash(raw)
 
     if args.write:
-        repo = repository_find()
-        sha = object_write(obj, repo)
+        repo = GitRepository.find()
+        sha = repo.object_write(obj)
 
     logger.info(sha)

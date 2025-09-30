@@ -1,9 +1,12 @@
+from argparse import _SubParsersAction
+
+from .command import command
 from app.cli import logger
+from app.repository import GitRepository
+from app.objects import GitCommit
 
-from app.repository import repository_find, object_read, GitCommit
 
-
-def setup_parser(subparsers):
+def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "log",
         help="Show history of a commit",
@@ -12,24 +15,23 @@ def setup_parser(subparsers):
     parser.set_defaults(func=command_log)
 
 
-def command_log(args):
-    repo = repository_find()
-
+@command(requires_repo=True)
+def command_log(args, repo: GitRepository) -> None:
     seen = set()
 
-    for sha in iterate_commits(repo, args.commit, seen):
-        commit = object_read(repo, sha)
+    for sha in iterate_commits(repo, repo.object_find(args.commit), seen):
+        commit = repo.object_read(sha)
         if not isinstance(commit, GitCommit):
             raise ValueError(f"Object {sha} is not a commit")
         print_commit(commit, sha)
 
 
-def iterate_commits(repository, sha, seen):
+def iterate_commits(repo: GitRepository, sha, seen):
     if sha in seen:
         return
 
     seen.add(sha)
-    commit = object_read(repository, sha)
+    commit = repo.object_read(sha)
 
     if not isinstance(commit, GitCommit):
         raise ValueError(f"Object {sha} is not a commit")
@@ -40,7 +42,7 @@ def iterate_commits(repository, sha, seen):
         parents = [parents]
 
     for parent in parents:
-        yield from iterate_commits(repository, parent, seen)
+        yield from iterate_commits(repo, parent, seen)
 
     yield sha
 

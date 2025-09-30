@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from app.repository.repository import GitRepository
 from .object import GitObject
 
 
@@ -12,7 +11,7 @@ class GitTree(GitObject):
     def initialize(self):
         self.items = list()
 
-    def serialize(self, repository: GitRepository | None = None) -> bytes:
+    def serialize(self) -> bytes:
         result = b""
 
         self.items.sort(key=lambda leaf: leaf.sort_key())
