@@ -25,7 +25,6 @@ class GitRepository:
             os.makedirs(self.worktree, exist_ok=True)
 
         if create:
-            print(1)
             os.makedirs(self.gitdir, exist_ok=True)
 
             for dir_name in ["branches", "objects", "refs/tags", "refs/heads"]:
@@ -37,7 +36,8 @@ class GitRepository:
             }
 
             for filename, content in files_to_create.items():
-                self.file_ensure(filename, content=content)
+                if not self.file_exists(filename):
+                    self.file_ensure(filename, content=content)
 
         config_path = self.resolve_path("config")
 
@@ -55,12 +55,17 @@ class GitRepository:
         depth = 0
 
         while True:
+            if depth >= max_depth:
+                raise FileNotFoundError(
+                    f"No git repository found within {max_depth} levels"
+                )
+
             gitdir_path = os.path.join(full_path, ".git")
             if os.path.isdir(gitdir_path):
                 return cls(full_path, create=False)
 
             parent = os.path.realpath(os.path.join(full_path, ".."))
-            if parent == full_path or depth >= max_depth:
+            if parent == full_path:
                 raise FileNotFoundError("No git repository found")
 
             full_path = parent
@@ -94,18 +99,18 @@ class GitRepository:
         return os.path.isfile(self.resolve_path(*subpath))
 
     def file_ensure(self, *subpath: str, content: Optional[str] = None) -> str:
-        dir_path = self.resolve_path(*subpath[:-1])
-        os.makedirs(dir_path, exist_ok=True)
+        self.dir_ensure(*subpath[:-1])
 
-        file_path = self.resolve_path(*subpath)
-        if not os.path.exists(file_path) and content is not None:
-            with open(file_path, "w") as f:
+        path = self.resolve_path(*subpath)
+
+        if os.path.exists(path) and not os.path.isfile(path):
+            raise IsADirectoryError(f"Is a directory: {path}")
+
+        with open(path, "w") as f:
+            if content is not None:
                 f.write(content)
 
-        if not os.path.isfile(file_path):
-            raise FileNotFoundError(f"File creation failed: {file_path}")
-
-        return file_path
+        return path
 
     def file_require(self, *subpath: str) -> str:
         path = self.resolve_path(*subpath)
@@ -154,16 +159,16 @@ class GitRepository:
     def object_find(
         self,
         name: str,
-        fmt: Optional[str] = None,
+        fmt: Optional[bytes] = None,
         follow=True,
     ) -> str:
-        try:
-            sha = self.object_resolve(name)
-        except FileNotFoundError:
-            raise FileNotFoundError("The object cannot be found")
+        sha = self.object_resolve(name)
+
+        if len(sha) == 0:
+            raise ValueError("No object found")
 
         if len(sha) > 1:
-            raise ValueError(f"Ambiguous reference {name}:\n - {'\n - '.join(sha)}.")
+            raise ValueError(f"Ambiguous reference {name}:\n - {'\n - '.join(sha)}")
 
         sha = sha[0]
 
@@ -206,11 +211,8 @@ class GitRepository:
         self.dir_ensure("objects", sha[:2])
         path = self.resolve_path("objects", sha[:2], sha[2:])
 
-        if not os.path.exists(path):
-            with open(path, "wb") as object_file:
-                object_file.write(zlib.compress(raw))
-        else:
-            raise FileExistsError("Object file already exists")
+        with open(path, "wb") as object_file:
+            object_file.write(zlib.compress(raw))
 
         return sha
 
@@ -249,8 +251,14 @@ class GitRepository:
 
         return candidates
 
-    def ref_resolve(self, ref: str) -> str:
+    def ref_resolve(self, ref: str, max_depth: int = 64) -> str:
+        depth = 0
         while True:
+            if depth >= max_depth:
+                raise RecursionError(
+                    f"Too many symbolic ref indirections (>{max_depth})"
+                )
+
             path = self.file_require(ref)
 
             with open(path, "r") as f:
@@ -258,6 +266,7 @@ class GitRepository:
 
             if data.startswith("ref: "):
                 ref = data[5:]
+                depth += 1
                 continue
 
             return data
@@ -277,7 +286,5 @@ class GitRepository:
 
         return result
 
-    def ref_create(self, name, sha):
-        self.dir_ensure("refs/")
-        with open(self.resolve_path("refs/" + name), "w") as f:
-            f.write(sha + "\n")
+    def ref_create(self, *subpath: str, sha: str) -> str:
+        return self.file_ensure(*subpath, content=sha + "\n")
