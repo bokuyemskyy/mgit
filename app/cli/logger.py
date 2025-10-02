@@ -11,9 +11,12 @@ stdout_handler.addFilter(lambda record: record.levelno < logging.WARNING)
 stderr_handler = logging.StreamHandler(sys.stderr)
 stderr_handler.setLevel(logging.WARNING)
 
-formatter = logging.Formatter("%(message)s")
-stdout_handler.setFormatter(formatter)
-stderr_handler.setFormatter(formatter)
+stdout_formatter = logging.Formatter("%(message)s")
+stdout_handler.setFormatter(stdout_formatter)
+
+
+stderr_formatter = logging.Formatter("Fatal: %(message)s")
+stderr_handler.setFormatter(stderr_formatter)
 
 logger.addHandler(stdout_handler)
 logger.addHandler(stderr_handler)
