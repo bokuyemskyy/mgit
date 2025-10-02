@@ -1,7 +1,7 @@
 import os
 from argparse import _SubParsersAction
 
-from .command import command
+from .command import cmd
 from app.cli import logger
 from app.repository import GitRepository
 from app.objects import GitTree
@@ -15,17 +15,17 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
     parser.add_argument(
         "-r", dest="recursive", action="store_true", help="Recurse into sub-trees"
     )
-    parser.set_defaults(func=command_ls_tree)
+    parser.set_defaults(func=cmd_ls_tree)
 
 
-@command(requires_repo=True)
-def command_ls_tree(args, repo) -> None:
+@cmd(req_repo=True)
+def cmd_ls_tree(args, repo) -> None:
     ls_tree(repo, args.tree, args.recursive)
 
 
 def ls_tree(repo: GitRepository, name: str, recursive: bool = False, prefix=""):
-    sha = repo.object_find(name, fmt="tree")
-    obj = repo.object_read(name)
+    sha = repo.objects.object_find(name, fmt=b"tree")
+    obj = repo.objects.object_read(name)
 
     if not isinstance(obj, GitTree):
         raise ValueError(f"Object is not a tree: {sha}")

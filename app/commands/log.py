@@ -1,6 +1,6 @@
 from argparse import _SubParsersAction
 
-from .command import command
+from .command import cmd
 from app.cli import logger
 from app.repository import GitRepository
 from app.objects import GitCommit
@@ -12,15 +12,15 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
         help="Show history of a commit",
     )
     parser.add_argument("commit", default="HEAD", nargs="?", help="Starting commit")
-    parser.set_defaults(func=command_log)
+    parser.set_defaults(func=cmd_log)
 
 
-@command(requires_repo=True)
-def command_log(args, repo: GitRepository) -> None:
+@cmd(req_repo=True)
+def cmd_log(args, repo: GitRepository) -> None:
     seen = set()
 
-    for sha in iterate_commits(repo, repo.object_find(args.commit), seen):
-        commit = repo.object_read(sha)
+    for sha in iterate_commits(repo, repo.objects.object_find(args.commit), seen):
+        commit = repo.objects.object_read(sha)
         if not isinstance(commit, GitCommit):
             raise ValueError(f"Object {sha} is not a commit")
         print_commit(commit, sha)
@@ -31,7 +31,7 @@ def iterate_commits(repo: GitRepository, sha, seen):
         return
 
     seen.add(sha)
-    commit = repo.object_read(sha)
+    commit = repo.objects.object_read(sha)
 
     if not isinstance(commit, GitCommit):
         raise ValueError(f"Object {sha} is not a commit")

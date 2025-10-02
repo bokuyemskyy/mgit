@@ -1,8 +1,7 @@
 import os
 from argparse import _SubParsersAction
 
-from .command import command
-from app.repository import GitRepository
+from .command import cmd
 from app.objects import GitCommit, GitTree, GitBlob
 
 
@@ -10,11 +9,11 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser("checkout", help="Checkout a commit")
     parser.add_argument("commit", help="The object to checkout")
     parser.add_argument("path", help="The empty directory to checkout on.")
-    parser.set_defaults(func=command_checkout)
+    parser.set_defaults(func=cmd_checkout)
 
 
-@command(requires_repo=True)
-def command_checkout(args, repo) -> None:
+@cmd(req_repo=True)
+def cmd_checkout(args, repo) -> None:
     sha = repo.object_find(args.commit)
     obj = repo.object_read(sha)
 
@@ -43,5 +42,5 @@ def tree_checkout(repo, tree, path):
             os.mkdir(dest)
             tree_checkout(repo, obj, dest)
         elif isinstance(obj, GitBlob):
-            with open(dest, "wb") as obj_file:
+            with open(dest, "wb", encoding="utf-8") as obj_file:
                 obj_file.write(obj.data)

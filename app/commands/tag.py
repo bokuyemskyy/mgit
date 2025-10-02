@@ -1,7 +1,7 @@
 from __future__ import annotations
 from argparse import _SubParsersAction
 
-from .command import command
+from .command import cmd
 from app.repository import GitRepository
 from app.objects import GitTag
 
@@ -22,11 +22,11 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
         "object", default="HEAD", nargs="?", help="Object the tag points to"
     )
 
-    parser.set_defaults(func=command_tag)
+    parser.set_defaults(func=cmd_tag)
 
 
-@command(requires_repo=True)
-def command_tag(args, repo) -> None:
+@cmd(req_repo=True)
+def cmd_tag(args, repo) -> None:
     if args.list:
         tags = repo.ref_list()["tags"]
         if isinstance(tags, dict):
@@ -42,7 +42,7 @@ def command_tag(args, repo) -> None:
 
 
 def tag_create(repo: GitRepository, name, ref, create_tag_object=False):
-    sha = repo.object_find(ref)
+    sha = repo.objects.object_find(ref)
 
     if create_tag_object:
         tag = GitTag()
@@ -52,7 +52,7 @@ def tag_create(repo: GitRepository, name, ref, create_tag_object=False):
         # tag.kvlm[b"tagger"]
         # tag.kvlm[None]
 
-        tag_sha = repo.object_write(tag)
-        repo.ref_create("tags/" + name, tag_sha)
+        tag_sha = repo.objects.object_write(tag)
+        repo.refs.ref_create("tags", name, sha=tag_sha)
     else:
-        repo.ref_create("tags/" + name, sha)
+        repo.refs.ref_create("tags", name, sha=sha)
