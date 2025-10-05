@@ -1,0 +1,35 @@
+from __future__ import annotations
+from argparse import _SubParsersAction
+
+from .command import cmd
+from app.repository import GitRepository
+from app.objects import GitTag
+
+from .show_ref import show_ref
+
+
+def setup_parser(subparsers: _SubParsersAction) -> None:
+    parser = subparsers.add_parser("rev-parse", help="Parse object identifiers")
+
+    parser.add_argument(
+        "--type",
+        metavar="type",
+        dest="type",
+        choices=["blob", "commit", "tag", "tree"],
+        default=None,
+        help="The expected type",
+    )
+
+    parser.add_argument("name", help="The name to parse")
+
+    parser.set_defaults(func=cmd_rev_parse)
+
+
+@cmd(req_repo=True)
+def cmd_rev_parse(args, repo: GitRepository) -> None:
+    if args.type:
+        fmt = args.type.encode()
+    else:
+        fmt = None
+
+    print(repo.objects.object_find(args.name, fmt, follow=True))

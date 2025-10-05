@@ -47,14 +47,18 @@ class GitObjects:
         follow=True,
     ) -> str:
         sha_list = self.object_resolve(name)
+
         if not sha_list:
             raise ValueError("No object found")
+
         if len(sha_list) > 1:
             raise ValueError(
                 f"Ambiguous reference {name}:\n - {'\n - '.join(sha_list)}"
             )
+
         sha = sha_list[0]
-        if not fmt:
+
+        if fmt is None:
             return sha
         while True:
             obj = self.object_read(sha)

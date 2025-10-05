@@ -22,33 +22,34 @@ class GitCommit(GitObject):
         return instance
 
 
-def kvlm_deserialize(raw: bytes, kvlm: Optional[dict] = None) -> dict:
-    size = len(raw)
+def kvlm_deserialize(data: bytes, kvlm: Optional[dict] = None) -> dict:
+    size = len(data)
 
     if kvlm is None:
         kvlm = {}
 
     pos = 0
     while pos < size:
-        space = raw.find(b" ", pos)
-        newline = raw.find(b"\n", pos)
+        space = data.find(b" ", pos)
+        newline = data.find(b"\n", pos)
 
         if (space < 0) or (newline < space):
             if newline != pos:
                 raise ValueError(f"Expected blank line at position {pos}")
-            kvlm[None][0] = raw[pos + 1 :]
+            kvlm[None][0] = data[pos + 1 :]
             return kvlm
 
-        key = raw[pos:space]
+        key = data[pos:space]
 
         end = pos
         while True:
-            end = raw.find(b"\n", end + 1)
-            if end < 0 or raw[end + 1] != ord(" "):
+            end = data.find(b"\n", end + 1)
+            if end < 0 or data[end + 1] != ord(" "):
                 break
 
-        value = raw[space + 1 : end].replace(b"\n ", b"\n")
+        value = data[space + 1 : end].replace(b"\n ", b"\n")
 
+        print(value)
         if key in kvlm:
             if isinstance(kvlm[key], list):
                 kvlm[key].append(value)
