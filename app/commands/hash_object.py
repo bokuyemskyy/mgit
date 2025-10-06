@@ -50,11 +50,11 @@ def cmd_hash_object(args) -> None:
         data = obj_file.read()
 
     obj = object_class.deserialize(data)
-    raw = GitObjects.object_raw(obj)
-    sha = GitObjects.object_hash(raw)
+    raw = GitObjects.raw(obj)
+    sha = GitObjects.hash(raw)
 
     if args.write:
-        repo = GitRepository.find()
-        sha = repo.objects.object_write(obj)
+        repo = GitRepository.load()
+        sha = repo.objects.write(obj)
 
     logger.info(sha)

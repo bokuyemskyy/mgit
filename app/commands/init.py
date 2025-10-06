@@ -21,10 +21,10 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
 def cmd_init(args) -> None:
     existed = False
     try:
-        repo = GitRepository.find(args.path, 1)
+        repo = GitRepository.load(args.path, 1)
         existed = True
     except Exception:
-        repo = GitRepository.create(args.path)
+        repo = GitRepository.init(args.path)
         pass
 
     if existed:

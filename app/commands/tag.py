@@ -42,7 +42,7 @@ def cmd_tag(args, repo) -> None:
 
 
 def tag_create(repo: GitRepository, name, ref, create_tag_object=False):
-    sha = repo.objects.object_find(ref)
+    sha = repo.objects.find(ref)
 
     if create_tag_object:
         tag = GitTag()
@@ -52,7 +52,7 @@ def tag_create(repo: GitRepository, name, ref, create_tag_object=False):
         # tag.kvlm[b"tagger"]
         # tag.kvlm[None]
 
-        tag_sha = repo.objects.object_write(tag)
-        repo.refs.ref_create("tags", name, sha=tag_sha)
+        tag_sha = repo.objects.write(tag)
+        repo.refs.create("tags", name, sha=tag_sha)
     else:
-        repo.refs.ref_create("tags", name, sha=sha)
+        repo.refs.create("tags", name, sha=sha)

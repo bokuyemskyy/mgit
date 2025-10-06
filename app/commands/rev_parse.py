@@ -32,4 +32,4 @@ def cmd_rev_parse(args, repo: GitRepository) -> None:
     else:
         fmt = None
 
-    print(repo.objects.object_find(args.name, fmt, follow=True))
+    print(repo.objects.find(args.name, fmt, follow=True))

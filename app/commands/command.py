@@ -8,7 +8,7 @@ def cmd(req_repo=False):
         @functools.wraps(func)
         def wrapper(args):
             try:
-                repo = GitRepository.find() if req_repo else None
+                repo = GitRepository.load() if req_repo else None
                 return func(args, repo) if req_repo else func(args)
             except Exception as e:
                 logger.error(f"{e}")

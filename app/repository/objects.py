@@ -10,11 +10,11 @@ class GitObjects:
     def __init__(self, fs):
         self.fs = fs
 
-    def object_file(self, sha: str) -> str:
+    def file(self, sha: str) -> str:
         return self.fs.file_require("objects", sha[:2], sha[2:])
 
-    def object_read(self, sha: str) -> GitObject:
-        path = self.object_file(sha)
+    def read(self, sha: str) -> GitObject:
+        path = self.file(sha)
         with open(path, "rb") as f:
             raw = zlib.decompress(f.read())
         fmt_sep = raw.find(b" ")
@@ -40,13 +40,13 @@ class GitObjects:
                 raise ValueError(f"Unknown object type: {fmt.decode('ascii')}")
         return object_class.deserialize(raw[size_sep + 1 :])
 
-    def object_find(
+    def find(
         self,
         name: str,
         fmt: Optional[bytes] = None,
         follow=True,
     ) -> str:
-        sha_list = self.object_resolve(name)
+        sha_list = self.resolve(name)
 
         if not sha_list:
             raise ValueError("No object found")
@@ -61,7 +61,7 @@ class GitObjects:
         if fmt is None:
             return sha
         while True:
-            obj = self.object_read(sha)
+            obj = self.read(sha)
             if obj.fmt == fmt:
                 return sha
             if not follow:
@@ -78,24 +78,24 @@ class GitObjects:
                 raise FileNotFoundError("The object cannot be found")
 
     @staticmethod
-    def object_hash(raw: bytes) -> str:
+    def hash(raw: bytes) -> str:
         return hashlib.sha1(raw).hexdigest()
 
     @staticmethod
-    def object_raw(obj: GitObject) -> bytes:
+    def raw(obj: GitObject) -> bytes:
         data = obj.serialize()
         return obj.fmt + b" " + str(len(data)).encode() + b"\x00" + data
 
-    def object_write(self, obj: GitObject) -> str:
-        raw = self.object_raw(obj)
-        sha = self.object_hash(raw)
+    def write(self, obj: GitObject) -> str:
+        raw = self.raw(obj)
+        sha = self.hash(raw)
         self.fs.dir_ensure("objects", sha[:2])
         path = self.fs.resolve_path("objects", sha[:2], sha[2:])
         with open(path, "wb") as object_file:
             object_file.write(zlib.compress(raw))
         return sha
 
-    def object_resolve(self, name: str) -> list[str]:
+    def resolve(self, name: str) -> list[str]:
         candidates = []
         if not name.strip():
             return candidates
@@ -103,7 +103,7 @@ class GitObjects:
             from .references import GitReferences
 
             refs = GitReferences(self.fs)
-            candidates.append(refs.ref_resolve("HEAD"))
+            candidates.append(refs.resolve("HEAD"))
             return candidates
         hash_re = re.compile(r"^[0-9A-Fa-f]{4,40}$")
         if hash_re.match(name):
@@ -119,7 +119,7 @@ class GitObjects:
         refs = GitReferences(self.fs)
         for ref in ["refs/tags/" + name, "refs/heads/" + name, "refs/remotes/" + name]:
             try:
-                candidates.append(refs.ref_resolve(ref))
+                candidates.append(refs.resolve(ref))
             except FileNotFoundError:
                 continue
         return candidates

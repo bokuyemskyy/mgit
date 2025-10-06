@@ -24,7 +24,7 @@ def cmd_cat_file(args, repo) -> None:
 
 
 def cat_file(repo: GitRepository, sha: str, fmt=None):
-    obj = repo.objects.object_read(repo.object_find(sha, fmt=fmt))
+    obj = repo.objects.read(repo.objects.find(sha, fmt=fmt))
     if not isinstance(obj, GitObject):
         raise ValueError(f"Not an object: {sha}")
     logger.info(obj.serialize().decode("ascii"))

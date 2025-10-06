@@ -24,8 +24,8 @@ def cmd_ls_tree(args, repo) -> None:
 
 
 def ls_tree(repo: GitRepository, name: str, recursive: bool = False, prefix=""):
-    sha = repo.objects.object_find(name, fmt=b"tree")
-    obj = repo.objects.object_read(name)
+    sha = repo.objects.find(name, fmt=b"tree")
+    obj = repo.objects.read(name)
 
     if not isinstance(obj, GitTree):
         raise ValueError(f"Object is not a tree: {sha}")

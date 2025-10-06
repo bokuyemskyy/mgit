@@ -19,8 +19,8 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
 def cmd_log(args, repo: GitRepository) -> None:
     seen = set()
 
-    for sha in iterate_commits(repo, repo.objects.object_find(args.commit), seen):
-        commit = repo.objects.object_read(sha)
+    for sha in iterate_commits(repo, repo.objects.find(args.commit), seen):
+        commit = repo.objects.read(sha)
         if not isinstance(commit, GitCommit):
             raise ValueError(f"Object {sha} is not a commit")
         print_commit(commit, sha)
@@ -31,7 +31,7 @@ def iterate_commits(repo: GitRepository, sha, seen):
         return
 
     seen.add(sha)
-    commit = repo.objects.object_read(sha)
+    commit = repo.objects.read(sha)
 
     if not isinstance(commit, GitCommit):
         raise ValueError(f"Object {sha} is not a commit")
