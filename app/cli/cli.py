@@ -16,7 +16,7 @@ COMMANDS = [
     "show_ref",
     "rev_parse",
     "ls_files",
-    "check-ignore",
+    "check_ignore",
 ]
 
 

@@ -7,7 +7,7 @@ from app.cli import logger
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser(
-        "check-ignore", help="Show which files are ignored by .gitignore"
+        "check-ignore", help="Check paths against ignore rules."
     )
     parser.add_argument(
         "path",
@@ -21,5 +21,5 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
 def cmd_check_ignore(args, repo: GitRepository) -> None:
     ignore = GitIgnore.read(repo)
     for path in args.path:
-        if ignore.is_ignored(path):
+        if GitIgnore.check_ignore(ignore, path):
             logger.info(f"{path}")
