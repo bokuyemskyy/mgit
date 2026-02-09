@@ -1,6 +1,8 @@
 import os
 from argparse import _SubParsersAction
 
+from app.repository import GitRepository
+
 from .command import cmd
 from app.objects import GitCommit, GitTree, GitBlob
 
@@ -13,14 +15,14 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
 
 
 @cmd(req_repo=True)
-def cmd_checkout(args, repo) -> None:
-    sha = repo.object_find(args.commit)
-    obj = repo.object_read(sha)
+def cmd_checkout(args, repo: GitRepository) -> None:
+    sha = repo.objects.find(args.commit)
+    obj = repo.objects.read(sha)
 
     if not isinstance(obj, GitCommit):
         raise ValueError(f"Object is not a commit: {sha}")
 
-    obj = repo.object_read(obj.kvlm[b"tree"][0].decode("ascii"))
+    obj = repo.objects.read(obj.kvlm[b"tree"][0].decode("ascii"))
 
     if os.path.exists(args.path):
         if not os.path.isdir(args.path):
@@ -33,9 +35,9 @@ def cmd_checkout(args, repo) -> None:
     tree_checkout(repo, obj, os.path.realpath(args.path))
 
 
-def tree_checkout(repo, tree, path):
+def tree_checkout(repo: GitRepository, tree, path):
     for item in tree.items:
-        obj = repo.object_read(item.sha)
+        obj = repo.objects.read(item.sha)
         dest = os.path.join(path, item.path)
 
         if isinstance(obj, GitTree):

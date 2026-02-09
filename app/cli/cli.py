@@ -17,6 +17,7 @@ COMMANDS = [
     "rev_parse",
     "ls_files",
     "check_ignore",
+    "status",
 ]
 
 

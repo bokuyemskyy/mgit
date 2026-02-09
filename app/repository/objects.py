@@ -4,17 +4,19 @@ import hashlib
 import re
 from typing import Optional
 from app.objects import GitBlob, GitCommit, GitObject, GitTag, GitTree
+from .filesystem import GitFilesystem
 
 
 class GitObjects:
     def __init__(self, fs):
-        self.fs = fs
+        self.fs: GitFilesystem = fs
 
     def file(self, sha: str) -> str:
         return self.fs.file_require("objects", sha[:2], sha[2:])
 
     def read(self, sha: str) -> GitObject:
         path = self.file(sha)
+
         with open(path, "rb") as f:
             raw = zlib.decompress(f.read())
         fmt_sep = raw.find(b" ")
@@ -38,6 +40,7 @@ class GitObjects:
                 object_class = GitBlob
             case _:
                 raise ValueError(f"Unknown object type: {fmt.decode('ascii')}")
+
         return object_class.deserialize(raw[size_sep + 1 :])
 
     def find(
@@ -62,18 +65,21 @@ class GitObjects:
             return sha
         while True:
             obj = self.read(sha)
+
             if obj.fmt == fmt:
                 return sha
+
             if not follow:
                 raise FileNotFoundError("The object cannot be found")
+
             if isinstance(obj, GitTag):
                 if not isinstance(obj.kvlm[b"object"], bytes):
                     raise ValueError("Invalid KVLM")
                 sha = obj.kvlm[b"object"].decode("ascii")
             elif isinstance(obj, GitCommit) and fmt == b"tree":
-                if not isinstance(obj.kvlm[b"tree"], bytes):
+                if not isinstance(obj.kvlm[b"tree"][0], bytes):
                     raise ValueError("Invalid KVLM")
-                sha = obj.kvlm[b"tree"].decode("ascii")
+                sha = obj.kvlm[b"tree"][0].decode("ascii")
             else:
                 raise FileNotFoundError("The object cannot be found")
 
@@ -90,7 +96,7 @@ class GitObjects:
         raw = self.raw(obj)
         sha = self.hash(raw)
         self.fs.dir_ensure("objects", sha[:2])
-        path = self.fs.resolve_path("objects", sha[:2], sha[2:])
+        path = self.fs.resolve("objects", sha[:2], sha[2:])
         with open(path, "wb") as object_file:
             object_file.write(zlib.compress(raw))
         return sha
@@ -111,7 +117,7 @@ class GitObjects:
             prefix = name[:2]
             remainder = name[2:]
             if self.fs.dir_exists("objects", prefix):
-                for file in os.listdir(self.fs.resolve_path("objects", prefix)):
+                for file in os.listdir(self.fs.resolve("objects", prefix)):
                     if file.startswith(remainder):
                         candidates.append(prefix + file)
         from .references import GitReferences

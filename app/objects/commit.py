@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, List, Optional
 from .object import GitObject
 
 
 class GitCommit(GitObject):
     fmt = b"commit"
 
-    kvlm: dict[Optional[bytes], list[bytes]]
+    kvlm: Dict[Optional[bytes], List[bytes]]
 
     def initialize(self):
         self.kvlm = {}
@@ -36,9 +36,8 @@ def kvlm_deserialize(data: bytes, kvlm: Optional[dict] = None) -> dict:
         if (space < 0) or (newline < space):
             if newline != pos:
                 raise ValueError(f"Expected blank line at position {pos}")
-            kvlm[None][0] = data[pos + 1 :]
+            kvlm[None] = [data[pos + 1 :]]
             return kvlm
-
         key = data[pos:space]
 
         end = pos
@@ -49,7 +48,6 @@ def kvlm_deserialize(data: bytes, kvlm: Optional[dict] = None) -> dict:
 
         value = data[space + 1 : end].replace(b"\n ", b"\n")
 
-        print(value)
         if key in kvlm:
             if isinstance(kvlm[key], list):
                 kvlm[key].append(value)
