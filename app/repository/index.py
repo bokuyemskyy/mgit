@@ -1,5 +1,4 @@
 from __future__ import annotations
-import os
 from typing import Tuple, Optional, List
 from app.repository import GitRepository
 from math import ceil
@@ -11,19 +10,19 @@ Timestamp = Tuple[int, int]
 class GitIndexEntry:
     def __init__(
         self,
-        ctime: Optional[Timestamp] = None,
-        mtime: Optional[Timestamp] = None,
-        dev: Optional[int] = None,
-        ino: Optional[int] = None,
-        mode_type: Optional[int] = None,
-        mode_perms: Optional[int] = None,
-        uid: Optional[int] = None,
-        gid: Optional[int] = None,
-        fsize: Optional[int] = None,
-        sha: Optional[str] = None,
-        assume_valid: Optional[bool] = None,
-        stage: Optional[int] = None,
-        name: Optional[str] = None,
+        ctime: Timestamp,
+        mtime: Timestamp,
+        dev: int,
+        ino: int,
+        mode_type: int,
+        mode_perms: int,
+        uid: int,
+        gid: int,
+        fsize: int,
+        sha: str,
+        assume_valid: bool,
+        stage: int,
+        name: str,
     ):
         self.ctime = ctime
         self.mtime = mtime
@@ -42,11 +41,8 @@ class GitIndexEntry:
 
 class GitIndex:
     def __init__(self, version: int = 2, entries: Optional[List[GitIndexEntry]] = None):
-        if entries is None:
-            entries = list()
-
         self.version = version
-        self.entries = entries
+        self.entries = entries if entries is not None else []
 
     @classmethod
     def read(cls, repo: GitRepository) -> GitIndex:
@@ -54,10 +50,9 @@ class GitIndex:
             return cls()
 
         raw: bytes = repo.fs.file_read("index", binary=True)
-
         header = raw[:12]
-        signature = header[:4]
-        if signature != b"DIRC":
+
+        if header[:4] != b"DIRC":
             raise ValueError("Invalid index file signature")
 
         version = int.from_bytes(header[4:8], "big")
@@ -65,56 +60,47 @@ class GitIndex:
             raise ValueError("mgit only supports index file version 2")
 
         count = int.from_bytes(header[8:12], "big")
-
         entries: List[GitIndexEntry] = []
         content = raw[12:]
         idx = 0
 
-        for i in range(0, count):
+        for i in range(count):
             ctime_s = int.from_bytes(content[idx : idx + 4], "big")
             ctime_ns = int.from_bytes(content[idx + 4 : idx + 8], "big")
-
             mtime_s = int.from_bytes(content[idx + 8 : idx + 12], "big")
             mtime_ns = int.from_bytes(content[idx + 12 : idx + 16], "big")
-
             dev = int.from_bytes(content[idx + 16 : idx + 20], "big")
             ino = int.from_bytes(content[idx + 20 : idx + 24], "big")
-
             unused = int.from_bytes(content[idx + 24 : idx + 26], "big")
             if unused != 0:
-                logger.warning("Index entry {i} has non-zero unused field")
+                logger.warning(f"Index entry {i} has non-zero unused field")
 
-            mode = int.from_bytes(content[idx + 26 : idx + 30], "big")
+            mode = int.from_bytes(content[idx + 26 : idx + 28], "big")
             mode_type = mode >> 12
-            if mode_type not in [0o10, 0o12, 0o16]:
+            if mode_type not in [0b1000, 0b1010, 0b1110]:
                 raise ValueError(f"Unknown index entry mode type: {mode_type}")
+            mode_perms = mode & 0o777
 
-            mode_perms = mode & 0o0000777
+            uid = int.from_bytes(content[idx + 28 : idx + 32], "big")
+            gid = int.from_bytes(content[idx + 32 : idx + 36], "big")
+            fsize = int.from_bytes(content[idx + 36 : idx + 40], "big")
+            sha = format(int.from_bytes(content[idx + 40 : idx + 60], "big"), "040x")
+            flags = int.from_bytes(content[idx + 60 : idx + 62], "big")
 
-            uid = int.from_bytes(content[idx + 30 : idx + 34], "big")
-            gid = int.from_bytes(content[idx + 34 : idx + 38], "big")
-            fsize = int.from_bytes(content[idx + 38 : idx + 42], "big")
-
-            sha = format(int.from_bytes(content[idx + 42 : idx + 62], "big"), "040x")
-
-            flags = int.from_bytes(content[idx + 62 : idx + 64], "big")
             assume_valid = (flags & 0b1000000000000000) != 0
             extended = (flags & 0b0100000000000000) != 0
-
             if extended:
-                logger.warning("Extended flags are not supported")
-
+                logger.warning(f"Index entry {i} has unsupported extended flags")
             stage = (flags & 0b0011000000000000) >> 12
             name_length = flags & 0b0000111111111111
 
-            idx += 64
+            idx += 62
 
             if name_length < 0xFFF:
                 raw_name = content[idx : idx + name_length]
                 idx += name_length
-
                 if content[idx] != 0x00:
-                    raise ValueError("Index entry name not null-terminated.")
+                    raise ValueError("Index entry name not null-terminated")
                 idx += 1
             else:
                 null_idx = content.find(b"\x00", idx + name_length)
@@ -124,7 +110,6 @@ class GitIndex:
                 idx = null_idx + 1
 
             name = raw_name.decode("utf8")
-
             padding_needed = 8 * ceil(idx / 8) - idx
             idx += padding_needed
 

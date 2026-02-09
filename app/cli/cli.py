@@ -15,6 +15,8 @@ COMMANDS = [
     "checkout",
     "show_ref",
     "rev_parse",
+    "ls_files",
+    "check-ignore",
 ]
 
 
