@@ -44,16 +44,15 @@ class GitIgnore:
                 return result
         return False
 
-    @classmethod
-    def check_ignore(cls, ignore: GitIgnore, path):
+    def check_ignore(self, path):
         if os.path.isabs(path):
             raise Exception("The path should be relative to the root of the repository")
 
-        result = GitIgnore.check_ignore_scoped(ignore.scoped, path)
+        result = GitIgnore.check_ignore_scoped(self.scoped, path)
         if result is not None:
             return result
 
-        return GitIgnore.check_ignore_absolute(ignore.absolute, path)
+        return GitIgnore.check_ignore_absolute(self.absolute, path)
 
     @classmethod
     def read(cls, repo: GitRepository) -> GitIgnore:

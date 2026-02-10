@@ -21,5 +21,5 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
 def cmd_check_ignore(args, repo: GitRepository) -> None:
     ignore = GitIgnore.read(repo)
     for path in args.path:
-        if GitIgnore.check_ignore(ignore, path):
+        if ignore.check_ignore(path):
             logger.info(f"{path}")

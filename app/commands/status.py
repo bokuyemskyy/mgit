@@ -1,7 +1,7 @@
 from argparse import _SubParsersAction
 import os
 
-from app.objects import GitTree
+from app.objects import GitTree, GitBlob
 from app.repository import GitRepository, GitIndex, GitIgnore, GitObjects
 
 from .command import cmd
@@ -71,13 +71,13 @@ def cmd_status_head_index(repo, index: GitIndex):
     for entry in index.entries:
         if entry.name in head:
             if head[entry.name] != entry.sha:
-                print("  modified:", entry.name)
+                print("\tmodified:", entry.name)
             head.pop(entry.name)
         else:
-            print("  added:   ", entry.name)
+            print("\tadded:   ", entry.name)
 
     for entry in head.keys():
-        print("  deleted: ", entry)
+        print("\tdeleted: ", entry)
 
     print()
 
@@ -103,7 +103,7 @@ def cmd_status_index_worktree(repo: GitRepository, index: GitIndex):
         full_path = os.path.join(repo.worktree, entry.name)
 
         if not os.path.exists(full_path):
-            print("  deleted: ", entry.name)
+            print("\tdeleted: ", entry.name)
         else:
             stat = os.stat(full_path)
 
@@ -111,16 +111,34 @@ def cmd_status_index_worktree(repo: GitRepository, index: GitIndex):
             mtime_ns = entry.mtime[0] * 10**9 + entry.mtime[1]
             if (stat.st_ctime_ns != ctime_ns) or (stat.st_mtime_ns != mtime_ns):
                 with open(full_path, "rb") as file:
-                    new_sha = GitObjects.hash(file)
+                    data = file.read()
+
+                    obj = GitBlob.deserialize(data)
+                    raw = GitObjects.raw(obj)
+                    new_sha = GitObjects.hash(raw)
+
                     if not (entry.sha == new_sha):
-                        print("  modified:", entry.name)
+                        print("\tmodified:", entry.name)
 
         if entry.name in all_files:
             all_files.remove(entry.name)
 
+    root_files = set()
+    top_dirs = set()
+
+    for file in all_files:
+        if ignore.check_ignore(file):
+            continue
+
+        parts = file.split("/")
+
+        if len(parts) == 1:
+            root_files.add(parts[0])
+        else:
+            top_dirs.add(parts[0] + "/")
+
     print()
     print("Untracked files:")
 
-    for file in all_files:
-        if not ignore.check_ignore(file):
-            print(" ", file)
+    for name in sorted(root_files | top_dirs):
+        print(f"\t{name}")

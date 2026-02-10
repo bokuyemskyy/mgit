@@ -32,6 +32,12 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
 
 @cmd(req_repo=False)
 def cmd_hash_object(args) -> None:
+    if not os.path.isfile(args.path):
+        raise FileNotFoundError(f"No such file: {args.path}")
+
+    with open(args.path, "rb") as obj_file:
+        data = obj_file.read()
+
     match args.type.encode():
         case b"commit":
             object_class = GitCommit
@@ -43,11 +49,6 @@ def cmd_hash_object(args) -> None:
             object_class = GitBlob
         case _:
             raise ValueError(f"Unknown object type: {args.type}")
-
-    if not os.path.isfile(args.path):
-        raise FileNotFoundError(f"No such file: {args.path}")
-    with open(args.path, "rb", encoding="utf-8") as obj_file:
-        data = obj_file.read()
 
     obj = object_class.deserialize(data)
     raw = GitObjects.raw(obj)
