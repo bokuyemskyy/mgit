@@ -7,7 +7,7 @@ from app.repository import GitRepository, GitIgnore
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser(
-        "check-ignore", help="Check paths against ignore rules."
+        "check-ignore", help="Check paths against ignore rules"
     )
     parser.add_argument(
         "path",

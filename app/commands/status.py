@@ -8,7 +8,7 @@ from app.repository import GitRepository, GitIndex, GitIgnore, GitObjects
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
-    parser = subparsers.add_parser("status", help="Show the working tree status.")
+    parser = subparsers.add_parser("status", help="Show the working tree status")
     parser.set_defaults(func=cmd_status)
 
 

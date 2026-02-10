@@ -4,8 +4,7 @@ from typing import List
 
 from .command import cmd
 from app.cli import logger
-from app.objects import GitTree, GitBlob
-from app.repository import GitRepository, GitIndex, GitIgnore, GitObjects
+from app.repository import GitRepository, GitIndex
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -17,7 +16,7 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
         "-f",
         "--force",
         action="store_true",
-        help="Remove files from filesystem (destructive!)",
+        help="Remove files from the filesystem (destructive!)",
     )
     parser.set_defaults(func=cmd_rm)
 
@@ -59,7 +58,7 @@ def rm(repo: GitRepository, paths: List[str], delete=False, skip_missing=False):
     if delete:
         for path in to_remove:
             try:
-                logger.warning(f"Removing {path} from filesystem")
+                logger.info(f"Removing {path} from the filesystem")
                 os.remove(path)
             except OSError as e:
                 logger.error(f"Failed to remove {path}: {e}")

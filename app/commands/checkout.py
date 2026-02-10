@@ -9,7 +9,7 @@ from app.objects import GitCommit, GitTree, GitBlob
 def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser("checkout", help="Checkout a commit")
     parser.add_argument("commit", help="The object to checkout")
-    parser.add_argument("path", help="The empty directory to checkout on.")
+    parser.add_argument("path", help="The empty directory to checkout on")
     parser.set_defaults(func=cmd_checkout)
 
 
