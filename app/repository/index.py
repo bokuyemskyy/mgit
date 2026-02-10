@@ -132,3 +132,55 @@ class GitIndex:
             )
 
         return cls(version=version, entries=entries)
+
+    # to verify
+    def write(self, repo: GitRepository):
+        content = bytearray()
+
+        content += b"DIRC"
+        content += self.version.to_bytes(4, "big")
+        content += len(self.entries).to_bytes(4, "big")
+
+        idx = 0
+
+        for entry in self.entries:
+            content += entry.ctime[0].to_bytes(4, "big")
+            content += entry.ctime[1].to_bytes(4, "big")
+            content += entry.mtime[0].to_bytes(4, "big")
+            content += entry.mtime[1].to_bytes(4, "big")
+            content += entry.dev.to_bytes(4, "big")
+            content += entry.ino.to_bytes(4, "big")
+
+            mode = (entry.mode_type << 12) | entry.mode_perms
+            content += mode.to_bytes(4, "big")
+
+            content += entry.uid.to_bytes(4, "big")
+            content += entry.gid.to_bytes(4, "big")
+
+            content += entry.fsize.to_bytes(4, "big")
+            content += int(entry.sha, 16).to_bytes(20, "big")
+
+            flag_assume_valid = 0x1 << 15 if entry.flag_assume_valid else 0
+
+            name_bytes = entry.name.encode("utf8")
+            bytes_len = len(name_bytes)
+            if bytes_len >= 0xFFF:
+                name_length = 0xFFF
+            else:
+                name_length = bytes_len
+
+            content += (flag_assume_valid | entry.flag_stage | name_length).to_bytes(
+                2, "big"
+            )
+
+            content += name_bytes
+            content += (0).to_bytes(1, "big")
+
+            idx += 62 + len(name_bytes) + 1
+
+            if idx % 8 != 0:
+                pad = 8 - (idx % 8)
+                content += (0).to_bytes(pad, "big")
+                idx += pad
+
+        repo.fs.file_write("index", content=content, root="git", overwrite=True)
