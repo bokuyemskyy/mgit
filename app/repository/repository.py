@@ -6,7 +6,7 @@ from typing import Dict, Union, Optional
 from .filesystem import GitFilesystem
 from .objects import GitObjects
 from .references import GitReferences
-from .config import default_config
+from .config import default_config, read_all_configs
 
 RefTree = Dict[str, Union[str, "RefTree"]]
 
@@ -24,16 +24,9 @@ class GitRepository:
         else:
             self.gitdir = os.path.realpath(gitdir)
 
+        self.config: ConfigParser = read_all_configs()
+
         self.fs = GitFilesystem(self.worktree, self.gitdir)
-
-        config_path = self.fs.resolve("config")
-        self.config: ConfigParser = ConfigParser(strict=False)
-
-        if self.fs.file_exists("config"):
-            self.config.read(config_path)
-        else:
-            self.config = default_config()
-
         self.objects = GitObjects(self.fs)
         self.refs = GitReferences(self.fs)
 
@@ -50,6 +43,7 @@ class GitRepository:
             "description": "Unnamed repository\n",
             "HEAD": "ref: refs/heads/main\n",
         }
+
         for filename, content in files_to_create.items():
             if not fs.file_exists(filename):
                 fs.file_ensure(filename, content=content)
