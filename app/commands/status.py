@@ -1,12 +1,10 @@
 from argparse import _SubParsersAction
 import os
 
+from .command import cmd
+from app.cli import logger
 from app.objects import GitTree, GitBlob
 from app.repository import GitRepository, GitIndex, GitIgnore, GitObjects
-
-from .command import cmd
-
-from app.cli import logger
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -36,11 +34,11 @@ def cmd_status_branch(repo: GitRepository):
     branch = get_current_branch(repo)
 
     if branch:
-        print(f"On branch {branch}")
+        logger.info(f"On branch {branch}")
     else:
-        print(f"HEAD detached at {repo.objects.find('HEAD')}")
+        logger.info(f"HEAD detached at {repo.objects.find('HEAD')}")
 
-    print()
+    logger.info("")
 
 
 def tree_to_dict(repo: GitRepository, ref, prefix=""):
@@ -64,26 +62,26 @@ def tree_to_dict(repo: GitRepository, ref, prefix=""):
 
 
 def cmd_status_head_index(repo, index: GitIndex):
-    print("Changes to be committed:")
+    logger.info("Changes to be committed:")
 
     head = tree_to_dict(repo, "HEAD")
 
     for entry in index.entries:
         if entry.name in head:
             if head[entry.name] != entry.sha:
-                print("\tmodified:", entry.name)
+                logger.info(f"\tmodified: {entry.name}")
             head.pop(entry.name)
         else:
-            print("\tadded:   ", entry.name)
+            logger.info(f"\tadded:    {entry.name}")
 
     for entry in head.keys():
-        print("\tdeleted: ", entry)
+        logger.info(f"\tdeleted:  {entry}")
 
-    print()
+    logger.info("")
 
 
 def cmd_status_index_worktree(repo: GitRepository, index: GitIndex):
-    print("Changes not staged for commit:")
+    logger.info("Changes not staged for commit:")
 
     ignore = GitIgnore.read(repo)
 
@@ -103,7 +101,7 @@ def cmd_status_index_worktree(repo: GitRepository, index: GitIndex):
         full_path = os.path.join(repo.worktree, entry.name)
 
         if not os.path.exists(full_path):
-            print("\tdeleted: ", entry.name)
+            logger.info(f"\tdeleted:  {entry.name}")
         else:
             stat = os.stat(full_path)
 
@@ -118,27 +116,14 @@ def cmd_status_index_worktree(repo: GitRepository, index: GitIndex):
                     new_sha = GitObjects.hash(raw)
 
                     if not (entry.sha == new_sha):
-                        print("\tmodified:", entry.name)
+                        logger.info(f"\tmodified: {entry.name}")
 
         if entry.name in all_files:
             all_files.remove(entry.name)
 
-    root_files = set()
-    top_dirs = set()
+    logger.info("")
+    logger.info("Untracked files:")
 
     for file in all_files:
-        if ignore.check_ignore(file):
-            continue
-
-        parts = file.split("/")
-
-        if len(parts) == 1:
-            root_files.add(parts[0])
-        else:
-            top_dirs.add(parts[0] + "/")
-
-    print()
-    print("Untracked files:")
-
-    for name in sorted(root_files | top_dirs):
-        print(f"\t{name}")
+        if not ignore.check_ignore(file):
+            logger.info(f"\t{file}")

@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import Tuple, Optional, List
-from app.repository import GitRepository
 from math import ceil
+
 from app.cli import logger
+from app.repository import GitRepository
 
 Timestamp = Tuple[int, int]
 
@@ -160,7 +161,7 @@ class GitIndex:
             content += entry.fsize.to_bytes(4, "big")
             content += int(entry.sha, 16).to_bytes(20, "big")
 
-            flag_assume_valid = 0x1 << 15 if entry.flag_assume_valid else 0
+            assume_valid = 0x1 << 15 if entry.assume_valid else 0
 
             name_bytes = entry.name.encode("utf8")
             bytes_len = len(name_bytes)
@@ -169,9 +170,7 @@ class GitIndex:
             else:
                 name_length = bytes_len
 
-            content += (flag_assume_valid | entry.flag_stage | name_length).to_bytes(
-                2, "big"
-            )
+            content += (assume_valid | entry.stage | name_length).to_bytes(2, "big")
 
             content += name_bytes
             content += (0).to_bytes(1, "big")
@@ -183,4 +182,4 @@ class GitIndex:
                 content += (0).to_bytes(pad, "big")
                 idx += pad
 
-        repo.fs.file_write("index", content=content, root="git", overwrite=True)
+        repo.fs.file_write("index", content=bytes(content), root="git", overwrite=True)

@@ -18,6 +18,7 @@ COMMANDS = [
     "ls_files",
     "check_ignore",
     "status",
+    "rm",
 ]
 
 

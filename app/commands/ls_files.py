@@ -1,11 +1,11 @@
 from argparse import _SubParsersAction
+from datetime import datetime
+import pwd
+import grp
 
 from .command import cmd
 from app.cli import logger
 from app.repository import GitRepository, GitIndex
-from datetime import datetime
-import pwd
-import grp
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:

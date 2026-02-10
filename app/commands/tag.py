@@ -1,11 +1,9 @@
-from __future__ import annotations
 from argparse import _SubParsersAction
 
 from .command import cmd
-from app.repository import GitRepository
-from app.objects import GitTag
-
 from .show_ref import show_ref
+from app.objects import GitTag
+from app.repository import GitRepository
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:

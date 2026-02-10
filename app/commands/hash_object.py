@@ -1,5 +1,5 @@
-import os
 from argparse import _SubParsersAction
+import os
 
 from .command import cmd
 from app.cli import logger

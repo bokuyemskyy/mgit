@@ -1,9 +1,8 @@
-import os
 from argparse import _SubParsersAction
-
-from app.repository import GitRepository
+import os
 
 from .command import cmd
+from app.repository import GitRepository
 from app.objects import GitCommit, GitTree, GitBlob
 
 

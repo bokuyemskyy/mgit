@@ -15,7 +15,7 @@ stdout_formatter = logging.Formatter("%(message)s")
 stdout_handler.setFormatter(stdout_formatter)
 
 
-stderr_formatter = logging.Formatter("Fatal: %(message)s")
+stderr_formatter = logging.Formatter("fatal: %(message)s")
 stderr_handler.setFormatter(stderr_formatter)
 
 logger.addHandler(stdout_handler)

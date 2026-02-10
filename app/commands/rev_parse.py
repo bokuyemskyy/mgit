@@ -1,11 +1,8 @@
-from __future__ import annotations
 from argparse import _SubParsersAction
 
 from .command import cmd
+from app.cli import logger
 from app.repository import GitRepository
-from app.objects import GitTag
-
-from .show_ref import show_ref
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -32,4 +29,4 @@ def cmd_rev_parse(args, repo: GitRepository) -> None:
     else:
         fmt = None
 
-    print(repo.objects.find(args.name, fmt, follow=True))
+    logger.info(repo.objects.find(args.name, fmt, follow=True))

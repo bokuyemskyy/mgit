@@ -1,10 +1,11 @@
 import os
+import re
 import zlib
 import hashlib
-import re
 from typing import Optional
-from app.objects import GitBlob, GitCommit, GitObject, GitTag, GitTree
+
 from .filesystem import GitFilesystem
+from app.objects import GitBlob, GitCommit, GitObject, GitTag, GitTree
 
 
 class GitObjects:

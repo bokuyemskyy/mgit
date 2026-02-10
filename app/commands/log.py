@@ -2,8 +2,8 @@ from argparse import _SubParsersAction
 
 from .command import cmd
 from app.cli import logger
-from app.repository import GitRepository
 from app.objects import GitCommit
+from app.repository import GitRepository
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
