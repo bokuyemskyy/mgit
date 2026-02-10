@@ -19,6 +19,7 @@ COMMANDS = [
     "check_ignore",
     "status",
     "rm",
+    "add",
 ]
 
 
