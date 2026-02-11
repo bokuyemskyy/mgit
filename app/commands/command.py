@@ -1,4 +1,5 @@
 import functools
+
 from app.cli import logger
 from app.repository import GitRepository
 

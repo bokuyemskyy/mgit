@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Union, Literal, overload
+from typing import Literal, Union, overload
 
 
 class GitFilesystem:

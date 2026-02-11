@@ -11,6 +11,7 @@ COMMANDS = [
     "cat_file",
     "hash_object",
     "log",
+    "tag",
     "ls_tree",
     "checkout",
     "show_ref",
@@ -20,6 +21,7 @@ COMMANDS = [
     "status",
     "rm",
     "add",
+    "commit",
 ]
 
 

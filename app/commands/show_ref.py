@@ -1,8 +1,9 @@
 from argparse import _SubParsersAction
 
-from .command import cmd
 from app.cli import logger
-from app.repository import RefTree
+from app.repository import GitRepository, RefTree
+
+from .command import cmd
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -11,8 +12,8 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
 
 
 @cmd(req_repo=True)
-def cmd_show_ref(args, repo) -> None:
-    refs = repo.ref_list()
+def cmd_show_ref(args, repo: GitRepository) -> None:
+    refs = repo.refs.list()
     show_ref(refs, prefix="refs")
 
 

@@ -1,10 +1,11 @@
-from argparse import _SubParsersAction
 import os
+from argparse import _SubParsersAction
+
+from app.cli import logger
+from app.objects import GitBlob, GitCommit, GitObject, GitTag, GitTree
+from app.repository import GitObjects, GitRepository
 
 from .command import cmd
-from app.cli import logger
-from app.repository import GitRepository, GitObjects
-from app.objects import GitCommit, GitTree, GitTag, GitBlob
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -38,6 +39,7 @@ def cmd_hash_object(args) -> None:
     with open(args.path, "rb") as obj_file:
         data = obj_file.read()
 
+    object_class: type[GitObject]
     match args.type.encode():
         case b"commit":
             object_class = GitCommit

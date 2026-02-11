@@ -1,15 +1,15 @@
 from argparse import _SubParsersAction
 
-from .command import cmd
 from app.cli import logger
 from app.repository import GitRepository
+
+from .command import cmd
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser("init", help="Initialize an empty repository")
     parser.add_argument(
         "path",
-        metavar="directory",
         nargs="?",
         default=".",
         help="Where to create the repository",

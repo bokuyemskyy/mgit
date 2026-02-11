@@ -1,9 +1,10 @@
+import sys
 from argparse import _SubParsersAction
 
-from .command import cmd
-from app.cli import logger
 from app.objects import GitObject
 from app.repository import GitRepository
+
+from .command import cmd
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -23,8 +24,11 @@ def cmd_cat_file(args, repo) -> None:
     cat_file(repo, args.object, args.type.encode())
 
 
-def cat_file(repo: GitRepository, sha: str, fmt=None):
-    obj = repo.objects.read(repo.objects.find(sha, fmt=fmt))
+def cat_file(repo: GitRepository, name: str, fmt=None):
+    sha = repo.objects.find(name, fmt=fmt)
+    obj = repo.objects.read(sha)
+
     if not isinstance(obj, GitObject):
-        raise ValueError(f"Not an object: {sha}")
-    logger.info(obj.serialize().decode("ascii"))
+        raise ValueError(f"not an object: {sha}")
+
+    sys.stdout.buffer.write(obj.serialize())
