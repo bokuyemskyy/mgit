@@ -1,6 +1,8 @@
 from __future__ import annotations
-from typing import Tuple, Optional, List
+
+import hashlib
 from math import ceil
+from typing import List, Optional, Tuple
 
 from app.cli import logger
 from app.repository import GitRepository
@@ -134,7 +136,6 @@ class GitIndex:
 
         return cls(version=version, entries=entries)
 
-    # to verify
     def write(self, repo: GitRepository):
         content = bytearray()
 
@@ -181,5 +182,8 @@ class GitIndex:
                 pad = 8 - (idx % 8)
                 content += (0).to_bytes(pad, "big")
                 idx += pad
+
+        checksum = hashlib.sha1(content).digest()
+        content += checksum
 
         repo.fs.file_write("index", content=bytes(content), root="git", overwrite=True)

@@ -1,9 +1,12 @@
-from configparser import ConfigParser
 import os
+import textwrap
+from configparser import ConfigParser
+
+from app.cli import logger
 
 
 def default_config() -> ConfigParser:
-    config = ConfigParser()
+    config = ConfigParser(strict=False)
     config.add_section("core")
     config.set("core", "repositoryformatversion", "0")
     config.set("core", "filemode", "false")
@@ -30,3 +33,24 @@ def read_all_configs(gitdir: str):
     config = default_config()
     config.read(config_files)
     return config
+
+
+def get_user_from_config(config: ConfigParser) -> str:
+    name = config.get("user", "name", fallback=None)
+    email = config.get("user", "email", fallback=None)
+
+    if name and email:
+        return f"{name} <{email}>"
+
+    logger.info(
+        textwrap.dedent(
+            """\
+            info: no user info found in config
+            please set your email and name using original git
+            example:
+                git config --local user.name "My Name"
+                git config --local user.email "email@example.com"
+            """
+        )
+    )
+    return "Unknown <unknown@example.com>"

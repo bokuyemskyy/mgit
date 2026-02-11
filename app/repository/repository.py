@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 from configparser import ConfigParser
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
+
+from .config import default_config, read_all_configs
 from .filesystem import GitFilesystem
 from .objects import GitObjects
 from .references import GitReferences
-from .config import default_config, read_all_configs
 
 RefTree = Dict[str, Union[str, "RefTree"]]
 
@@ -24,11 +25,11 @@ class GitRepository:
         else:
             self.gitdir = os.path.realpath(gitdir)
 
-        self.config: ConfigParser = read_all_configs()
+        self.config: ConfigParser = read_all_configs(self.gitdir)
 
         self.fs = GitFilesystem(self.worktree, self.gitdir)
-        self.objects = GitObjects(self.fs)
         self.refs = GitReferences(self.fs)
+        self.objects = GitObjects(self.fs, self.refs)
 
     @classmethod
     def _create_initial_structure(cls, worktree: str, gitdir: str):

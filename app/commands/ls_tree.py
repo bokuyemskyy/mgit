@@ -1,10 +1,11 @@
-from argparse import _SubParsersAction
 import os
+from argparse import _SubParsersAction
 
-from .command import cmd
 from app.cli import logger
 from app.objects import GitTree
 from app.repository import GitRepository
+
+from .command import cmd
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -15,6 +16,7 @@ def setup_parser(subparsers: _SubParsersAction) -> None:
     parser.add_argument(
         "-r", dest="recursive", action="store_true", help="Recurse into sub-trees"
     )
+    parser.add_argument("tree", help="A tree-ish object")
     parser.set_defaults(func=cmd_ls_tree)
 
 
@@ -25,18 +27,18 @@ def cmd_ls_tree(args, repo) -> None:
 
 def ls_tree(repo: GitRepository, name: str, recursive: bool = False, prefix=""):
     sha = repo.objects.find(name, fmt=b"tree")
-    obj = repo.objects.read(name)
+    obj = repo.objects.read(sha)
 
     if not isinstance(obj, GitTree):
         raise ValueError(f"Object is not a tree: {sha}")
 
     for item in obj.items:
         if len(item.mode) == 5:
-            type = item.mode[0:1]
+            type_bytes = item.mode[0:1]
         else:
-            type = item.mode[0:2]
+            type_bytes = item.mode[0:2]
 
-        match type:
+        match type_bytes:
             case b"04":
                 type = "tree"
             case b"10":
@@ -46,7 +48,7 @@ def ls_tree(repo: GitRepository, name: str, recursive: bool = False, prefix=""):
             case b"16":
                 type = "commit"
             case _:
-                raise Exception(f"Unknown object type: {item.mode}")
+                raise Exception(f"Unknown object type: '{item.mode.decode('ascii')}'")
 
         if not (recursive and type == "tree"):
             logger.info(
