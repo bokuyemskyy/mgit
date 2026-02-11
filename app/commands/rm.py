@@ -1,67 +1,113 @@
-from argparse import _SubParsersAction
 import os
-from typing import List
+from argparse import _SubParsersAction
+from typing import Dict, List, Set
+
+from app.cli import logger
+from app.repository import GitIndex, GitRepository
 
 from .command import cmd
-from app.cli import logger
-from app.repository import GitRepository, GitIndex
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
     parser = subparsers.add_parser(
-        "rm", help="Remove files from the working tree and from the index."
+        "rm", help="Remove files from the working tree and from the index"
     )
     parser.add_argument("path", nargs="+", help="Files to remove")
     parser.add_argument(
-        "-f",
-        "--force",
+        "--cached",
+        dest="cached",
         action="store_true",
-        help="Remove files from the filesystem (destructive!)",
+        help="Unstage and remove paths only from the index, not from working tree",
+    )
+    parser.add_argument(
+        "-r",
+        dest="recursive",
+        action="store_true",
+        help="Allow recursive removal when a leading directory name is given",
     )
     parser.set_defaults(func=cmd_rm)
 
 
 @cmd(req_repo=True)
 def cmd_rm(args, repo: GitRepository) -> None:
-    rm(repo, args.path, delete=args.force)
+    rm(repo, args.path, cached=args.cached, recursive=args.recursive)
 
 
-def rm(repo: GitRepository, paths: List[str], delete=False, skip_missing=False):
-    index = GitIndex.read(repo)
+def rm(
+    repo: GitRepository,
+    paths: List[str],
+    cached=False,
+    recursive=False,
+):
 
-    worktree_prefix = repo.worktree + os.sep
-
-    abspaths = set()
+    dirs_to_remove: Set[str] = set()
+    files_to_remove: Set[str] = set()
+    entries_to_remove: Dict[str, str] = {}
 
     for path in paths:
-        abspath = os.path.abspath(path)
-        if not os.path.realpath(abspath).startswith(os.path.realpath(worktree_prefix)):
-            raise Exception(f"Path is outside of worktree: {abspath}")
-        abspaths.add(abspath)
+        abspath = os.path.realpath(path)
 
-    kept_entries = list()
+        if os.path.commonpath([abspath, repo.worktree]) != repo.worktree:
+            raise Exception(f"path is outside of worktree: {path}")
 
-    to_remove = list()
+        if abspath.startswith(repo.gitdir):
+            raise Exception(f"pathspec '{path}' did not match any files")
+
+        if os.path.isdir(abspath):
+            if not recursive:
+                raise Exception(f"not removing {path} recursively without -r")
+            for root, dirs, files in os.walk(abspath):
+                if ".git" in dirs:
+                    dirs.remove(".git")
+                for file in files:
+                    files_to_remove.add(os.path.join(root, file))
+                for dir in dirs:
+                    dirs_to_remove.add(os.path.join(root, dir))
+
+            dirs_to_remove.add(abspath)
+        elif os.path.isfile(abspath):
+            files_to_remove.add(abspath)
+        else:
+            entries_to_remove[abspath] = path
+
+    index = GitIndex.read(repo)
+
+    kept_entries = []
+    files_removed_from_index = []
 
     for entry in index.entries:
-        full_path = repo.fs.resolve(entry.name, root="worktree")
+        abspath = repo.fs.resolve(entry.name, root="worktree")
 
-        if full_path in abspaths:
-            to_remove.append(full_path)
-            abspaths.remove(full_path)
+        if abspath in entries_to_remove:
+            del entries_to_remove[abspath]
+        elif abspath in files_to_remove:
+            files_removed_from_index.append(abspath)
+            files_to_remove.remove(abspath)
         else:
             kept_entries.append(entry)
 
-    if len(abspaths) > 0 and not skip_missing:
-        raise Exception(f"Cannot remove paths not in the index: {abspaths}")
+    for _, path in entries_to_remove.items():
+        raise Exception(f"pathspec '{path}' did not match any files")
 
-    if delete:
-        for path in to_remove:
-            try:
-                logger.info(f"Removing {path} from the filesystem")
-                os.remove(path)
-            except OSError as e:
-                logger.error(f"Failed to remove {path}: {e}")
+    # Now, we handle files_removed_from_index, files_to_remove, dirs_to_remove
+
+    if not cached:
+        for abspath in files_to_remove:
+            if os.path.exists(abspath):
+                logger.info(f"removing {abspath} from the filesystem")
+                os.remove(abspath)
+            else:
+                raise Exception(f"pathspec '{abspath}' did not match any files")
+        for abspath in files_removed_from_index:
+            if os.path.exists(abspath):
+                logger.info(f"removing {abspath} from the filesystem")
+                os.remove(abspath)
+            else:
+                pass  # Fine because we found and removed that file from index
+        for abspath in dirs_to_remove:
+            if os.path.exists(abspath):
+                logger.info(f"removing {abspath} from the filesystem")
+                os.rmdir(abspath)
 
     index.entries = kept_entries
     index.write(repo)

@@ -1,12 +1,11 @@
-from argparse import _SubParsersAction
 import os
-from typing import List, Tuple
+from argparse import _SubParsersAction
+from typing import List, Set
 
-
-from .rm import rm
-from .command import cmd
 from app.objects import GitBlob
-from app.repository import GitRepository, GitIndex, GitIndexEntry, GitObjects
+from app.repository import GitIgnore, GitIndex, GitIndexEntry, GitRepository
+
+from .command import cmd
 
 
 def setup_parser(subparsers: _SubParsersAction) -> None:
@@ -20,27 +19,46 @@ def cmd_add(args, repo: GitRepository) -> None:
     add(repo, args.path)
 
 
-def add(repo: GitRepository, paths: List[str], delete=False, skip_missing=False):
-    rm(repo, paths, delete=False, skip_missing=True)
+def add(repo: GitRepository, paths: List[str], skip_missing=False):
+    files_to_add: Set[str] = set()
 
-    worktree_prefix = repo.worktree + os.sep
-
-    pair_paths: Tuple[str, str] = set()
+    ignore = GitIgnore.read(repo)
 
     for path in paths:
-        abspath = os.path.abspath(path)
-        if not abspath.startswith(worktree_prefix):
-            raise Exception(f"Path is outside of worktree: {abspath}")
-        if not os.path.isfile(abspath):
-            raise Exception(f"Not a file: {abspath}")
-        relpath = os.path.relpath(abspath, repo.worktree)
-        pair_paths.add((abspath, relpath))
+        abspath = os.path.realpath(path)
+
+        if os.path.commonpath([abspath, repo.worktree]) != repo.worktree:
+            raise Exception(f"path is outside of worktree: {path}")
+
+        if abspath.startswith(repo.gitdir):
+            raise Exception(f"pathspec '{path}' did not match any files")
+
+        if os.path.isdir(abspath):
+            for root, dirs, files in os.walk(abspath):
+                if ".git" in dirs:
+                    dirs.remove(".git")
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    relpath = os.path.relpath(full_path, repo.worktree)
+
+                    if not ignore.check_ignore(relpath):
+                        files_to_add.add(full_path)
+        elif os.path.isfile(abspath):
+            relpath = os.path.relpath(abspath, repo.worktree)
+            if not ignore.check_ignore(relpath):
+                files_to_add.add(abspath)
+        elif not skip_missing:
+            raise Exception(f"path does not exist: {path}")
 
     index = GitIndex.read(repo)
 
-    for abspath, relpath in pair_paths:
-        with open(abspath, "rb") as file:
-            data = file.read()
+    entry_map = {entry.name: i for i, entry in enumerate(index.entries)}
+
+    for abspath in files_to_add:
+        relpath = os.path.relpath(abspath, repo.worktree)
+
+        with open(abspath, "rb") as f:
+            data = f.read()
 
             obj = GitBlob.deserialize(data)
 
@@ -48,14 +66,9 @@ def add(repo: GitRepository, paths: List[str], delete=False, skip_missing=False)
 
             stat = os.stat(abspath)
 
-            ctime_s = int(stat.st_ctime)
-            ctime_ns = stat.st_ctime_ns % 10**9
-            mtime_s = int(stat.st_mtime)
-            mtime_ns = stat.st_mtime_ns % 10**9
-
-            entry = GitIndexEntry(
-                ctime=(ctime_s, ctime_ns),
-                mtime=(mtime_s, mtime_ns),
+            new_entry = GitIndexEntry(
+                ctime=(int(stat.st_ctime), stat.st_ctime_ns % 10**9),
+                mtime=(int(stat.st_mtime), stat.st_mtime_ns % 10**9),
                 dev=stat.st_dev,
                 ino=stat.st_ino,
                 mode_type=0b1000,
@@ -65,9 +78,14 @@ def add(repo: GitRepository, paths: List[str], delete=False, skip_missing=False)
                 fsize=stat.st_size,
                 sha=sha,
                 assume_valid=False,
-                stage=False,
+                stage=0,
                 name=relpath,
             )
-            index.entries.append(entry)
 
+            if relpath in entry_map:
+                index.entries[entry_map[relpath]] = new_entry
+            else:
+                index.entries.append(new_entry)
+
+    index.entries.sort(key=lambda x: x.name)
     index.write(repo)
