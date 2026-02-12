@@ -60,8 +60,9 @@ class GitObjects:
             raise ValueError("No object found")
 
         if len(sha_list) > 1:
+            separator = "\n - "
             raise ValueError(
-                f"Ambiguous reference {name}:\n - {'\n - '.join(sha_list)}"
+                f"Ambiguous reference {name}:\n - {separator.join(sha_list)}"
             )
 
         sha = sha_list[0]
@@ -108,8 +109,10 @@ class GitObjects:
         self.fs.dir_ensure("objects", sha[:2])
         path = self.fs.resolve("objects", sha[:2], sha[2:])
 
-        with open(path, "wb") as object_file:
-            object_file.write(zlib.compress(raw))
+        if not os.path.exists(path):
+            with open(path, "wb") as object_file:
+                object_file.write(zlib.compress(raw))
+
         return sha
 
     def resolve(self, name: str) -> list[str]:
