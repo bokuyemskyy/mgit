@@ -12,7 +12,10 @@ This project is educational and was originally inspired by the [Write Yourself A
 <img width="464" height="308" alt="Console screenshot" src="https://github.com/user-attachments/assets/8c7da133-df4a-4bf4-a3d9-32731b53cce2" />
 
 ## Features
-MiniGit supports the following commands
+**Note:** MiniGit operates entirely locally and does not support remote repository functionality. Many commands implement core functionality only.
+
+MiniGit supports the following commands:
+
 | Command       | Description                                                     |
 |--------------|-----------------------------------------------------------------|
 | init         | Initialize an empty repository                                  |
@@ -31,7 +34,6 @@ MiniGit supports the following commands
 | add          | Add file contents to the index                                  |
 | commit       | Record changes to the repository                                |
 
-Note: Many commands implement core functionality only
 
 
 ## Technical stack
